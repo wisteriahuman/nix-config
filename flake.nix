@@ -15,7 +15,7 @@
       pkgs = nixpkgs.legacyPackages.${system};
     in
     {
-      homeConfigurations."wisteria@wisterianoMacBook-Air" = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations."wisteria@m5-macbook-air" = home-manager.lib.homeManagerConfiguration {
         inherit pkgs;
         modules = [ ./home.nix ];
       };
