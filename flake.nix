@@ -20,8 +20,5 @@
         pkgs = nixpkgs.legacyPackages."x86_64-linux";
         modules = [ ./hosts/surface.nix ];
       };
-
-      # 将来Windows機(NixOS-WSL)を使うようになったら、
-      # homeConfigurations."wisteria@<host>" を追加する
     };
 }
