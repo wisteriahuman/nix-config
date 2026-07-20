@@ -1,0 +1,14 @@
+shell = "zsh"
+
+[plugins.powerlevel10k]
+github = "romkatv/powerlevel10k"
+use = ["powerlevel10k.zsh-theme"]
+
+[plugins.zsh-autosuggestions]
+github = "zsh-users/zsh-autosuggestions"
+
+[plugins.zsh-syntax-highlighting]
+github = "zsh-users/zsh-syntax-highlighting"
+
+[plugins.fzf-tab]
+github = "Aloxaf/fzf-tab"
