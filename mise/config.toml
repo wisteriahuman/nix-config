@@ -1,0 +1,19 @@
+[tools]
+bun = "latest"
+erlang = "latest"
+gleam = "latest"
+go = "latest"
+neovim = "latest"
+node = "lts"
+"npm:swagger-ui-watcher" = "latest"
+pnpm = "latest"
+ruby = "latest"
+uv = "latest"
+
+[settings]
+
+[settings.ruby]
+compile = true
+
+[env]
+GOPATH = "{{env.HOME}}/.local/share/mise/go"
