@@ -10,17 +10,18 @@
   };
 
   outputs = { self, nixpkgs, home-manager, ... }:
-    let
-      system = "aarch64-darwin";
-      pkgs = nixpkgs.legacyPackages.${system};
-    in
     {
       homeConfigurations."wisteria@m5-macbook-air" = home-manager.lib.homeManagerConfiguration {
-        inherit pkgs;
-        modules = [ ./home.nix ];
+        pkgs = nixpkgs.legacyPackages."aarch64-darwin";
+        modules = [ ./hosts/m5-macbook-air.nix ];
       };
 
-      # 将来 Linux機/WSL(NixOS-WSL)を使うようになったら、
-      # homeConfigurations."wisteria@<host>" を x86_64-linux / aarch64-linux 向けに追加する
+      homeConfigurations."wisteria@surface" = home-manager.lib.homeManagerConfiguration {
+        pkgs = nixpkgs.legacyPackages."x86_64-linux";
+        modules = [ ./hosts/surface.nix ];
+      };
+
+      # 将来Windows機(NixOS-WSL)を使うようになったら、
+      # homeConfigurations."wisteria@<host>" を追加する
     };
 }
