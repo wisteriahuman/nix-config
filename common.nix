@@ -7,6 +7,7 @@
     eza
     bat
     sheldon
+    zoxide
   ];
 
   programs.home-manager.enable = true;
