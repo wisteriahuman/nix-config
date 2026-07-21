@@ -12,7 +12,15 @@ _real_docker() {
   return 127
 }
 
-if [[ "$(_real_docker context show 2>/dev/null)" == "default" ]]; then
+_docker_remote_target() {
+  local ctx endpoint
+  ctx=$(_real_docker context show 2>/dev/null)
+  endpoint=$(_real_docker context inspect "$ctx" --format '{{.Endpoints.docker.Host}}' 2>/dev/null)
+  [[ "$endpoint" == ssh://* ]] || return 1
+  print -r -- "${endpoint#ssh://}"
+}
+
+if ! _DOCKER_REMOTE_HOST=$(_docker_remote_target); then
   _real_docker "$@"
   exit $?
 fi
@@ -22,13 +30,13 @@ _docker_remote_sync_to() {
   local quiet=$2
   local rel_path="${local_path#/}"
   local remote_path
-  remote_path=$(ssh surface "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"")
+  remote_path=$(ssh "$_DOCKER_REMOTE_HOST" "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"")
   [[ -z "$remote_path" ]] && return 1
   if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --checksum --update --delete --exclude=.git "${local_path}/" "surface:${remote_path}/" >/dev/null
+    rsync -az -q --checksum --update --delete --exclude=.git "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" >/dev/null
   else
-    print -u2 -- "docker: syncing ${local_path} -> surface"
-    rsync -az --checksum --update --info=progress2 --delete --exclude=.git "${local_path}/" "surface:${remote_path}/" 1>&2
+    print -u2 -- "docker: syncing ${local_path} -> ${_DOCKER_REMOTE_HOST}"
+    rsync -az --checksum --update --info=progress2 --delete --exclude=.git "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" 1>&2
   fi
   print -r -- "$remote_path"
 }
@@ -38,10 +46,10 @@ _docker_remote_sync_from() {
   local remote_path=$2
   local quiet=$3
   if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --checksum --update "surface:${remote_path}/" "${local_path}/" >/dev/null 2>&1
+    rsync -az -q --checksum --update "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" >/dev/null 2>&1
   else
-    print -u2 -- "docker: syncing results back from surface"
-    rsync -az --checksum --update --info=progress2 "surface:${remote_path}/" "${local_path}/" 1>&2
+    print -u2 -- "docker: syncing results back from ${_DOCKER_REMOTE_HOST}"
+    rsync -az --checksum --update --info=progress2 "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" 1>&2
   fi
 }
 
@@ -81,7 +89,7 @@ _docker_remote_compose() {
   local remote_dir
   remote_dir=$(_docker_remote_sync_to "$local_dir")
   if [[ -z "$remote_dir" ]]; then
-    print -u2 -- "docker: failed to sync $local_dir to surface"
+    print -u2 -- "docker: failed to sync $local_dir to ${_DOCKER_REMOTE_HOST}"
     return 1
   fi
 
@@ -99,7 +107,7 @@ _docker_remote_compose() {
 
   local -a port_args
   local ports
-  ports=$(ssh surface "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
+  ports=$(ssh "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
     | jq -r '[.services[].ports[]?.published] | unique | .[]' 2>/dev/null)
   local p
   for p in ${(f)ports}; do
@@ -112,8 +120,8 @@ _docker_remote_compose() {
   puller=$(_docker_remote_pull_start "${local_dir}:::${remote_dir}")
   trap '_docker_remote_watch_stop "$watcher"; _docker_remote_watch_stop "$puller"' EXIT INT TERM
 
-  print -u2 -- "docker: running on surface"
-  ssh -t "${port_args[@]}" surface "cd '$remote_dir' && docker compose $*"
+  print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
+  ssh -t "${port_args[@]}" "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose $*"
   local exit_code=$?
 
   _docker_remote_watch_stop "$watcher"
@@ -185,8 +193,8 @@ _docker_remote_run() {
     trap '_docker_remote_watch_stop "$watcher"; _docker_remote_watch_stop "$puller"' EXIT INT TERM
   fi
 
-  print -u2 -- "docker: running on surface"
-  ssh -t "${port_args[@]}" surface "docker run ${args[*]}"
+  print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
+  ssh -t "${port_args[@]}" "$_DOCKER_REMOTE_HOST" "docker run ${args[*]}"
   local exit_code=$?
 
   _docker_remote_watch_stop "$watcher"
