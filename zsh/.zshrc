@@ -36,6 +36,8 @@ alias grep='rg'
 
 eval "$(mise activate zsh)"
 
+source ~/.config/zsh/functions.zsh
+
 for f in ~/.config/zsh/hidden/*.zsh(N); do
     source "$f"
 done
