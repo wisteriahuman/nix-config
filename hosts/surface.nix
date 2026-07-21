@@ -10,6 +10,8 @@
 
   home.packages = [ pkgs.mise pkgs.gcc ];
 
+  services.ssh-agent.enable = true;
+
   xdg.configFile."mise/conf.d/10-surface.toml".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/surface.toml";
 }

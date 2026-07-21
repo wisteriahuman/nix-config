@@ -23,6 +23,7 @@
     poppler
     mpv
     rsync
+    git
   ];
 
   programs.home-manager.enable = true;
