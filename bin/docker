@@ -1,3 +1,22 @@
+#!/usr/bin/env zsh
+
+_real_docker() {
+  local candidate
+  for candidate in /opt/homebrew/bin/docker /usr/local/bin/docker /usr/bin/docker; do
+    if [[ -x "$candidate" ]]; then
+      "$candidate" "$@"
+      return $?
+    fi
+  done
+  print -u2 -- "docker: real binary not found"
+  return 127
+}
+
+if [[ "$(_real_docker context show 2>/dev/null)" == "default" ]]; then
+  _real_docker "$@"
+  exit $?
+fi
+
 _docker_remote_sync_to() {
   local local_path=$1
   local remote_path="$HOME/.cache/docker-remote-sync${local_path}"
@@ -127,21 +146,17 @@ _docker_remote_run() {
   return $status
 }
 
-docker() {
-  if [[ "$(command docker context show 2>/dev/null)" == "default" ]]; then
-    command docker "$@"
-    return $?
-  fi
-
-  case "$1" in
-    compose)
-      _docker_remote_compose "${@:2}"
-      ;;
-    run|create)
-      _docker_remote_run "${@:2}"
-      ;;
-    *)
-      command docker "$@"
-      ;;
-  esac
-}
+case "$1" in
+  compose)
+    _docker_remote_compose "${@:2}"
+    exit $?
+    ;;
+  run|create)
+    _docker_remote_run "${@:2}"
+    exit $?
+    ;;
+  *)
+    _real_docker "$@"
+    exit $?
+    ;;
+esac
