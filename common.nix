@@ -22,6 +22,7 @@
     gh
     poppler
     mpv
+    rsync
   ];
 
   programs.home-manager.enable = true;

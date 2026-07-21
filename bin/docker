@@ -19,23 +19,32 @@ fi
 
 _docker_remote_sync_to() {
   local local_path=$1
-  local remote_path="$HOME/.cache/docker-remote-sync${local_path}"
-  ssh surface "mkdir -p '$remote_path'" 2>/dev/null
-  rsync -az -q --delete --exclude=.git "${local_path}/" "surface:${remote_path}/"
+  local quiet=$2
+  local rel_path="${local_path#/}"
+  local remote_path
+  remote_path=$(ssh surface "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"")
+  [[ -z "$remote_path" ]] && return 1
+  if [[ "$quiet" == "quiet" ]]; then
+    rsync -az -q --delete --exclude=.git "${local_path}/" "surface:${remote_path}/"
+  else
+    print -u2 -- "docker: syncing ${local_path} -> surface"
+    rsync -az --info=progress2 --delete --exclude=.git "${local_path}/" "surface:${remote_path}/"
+  fi
   print -r -- "$remote_path"
 }
 
 _docker_remote_sync_from() {
   local local_path=$1
-  local remote_path="$HOME/.cache/docker-remote-sync${local_path}"
-  rsync -az -q "surface:${remote_path}/" "${local_path}/"
+  local remote_path=$2
+  print -u2 -- "docker: syncing results back from surface"
+  rsync -az --info=progress2 "surface:${remote_path}/" "${local_path}/"
 }
 
 _docker_remote_watch_start() {
   (
     fswatch -o "$@" 2>/dev/null | while read -r _; do
       for p in "$@"; do
-        _docker_remote_sync_to "$p" >/dev/null
+        _docker_remote_sync_to "$p" quiet >/dev/null
       done
     done
   ) &
@@ -43,6 +52,7 @@ _docker_remote_watch_start() {
 }
 
 _docker_remote_watch_stop() {
+  [[ -z "$1" ]] && return
   kill "$1" 2>/dev/null
   wait "$1" 2>/dev/null
 }
@@ -51,6 +61,10 @@ _docker_remote_compose() {
   local local_dir=$PWD
   local remote_dir
   remote_dir=$(_docker_remote_sync_to "$local_dir")
+  if [[ -z "$remote_dir" ]]; then
+    print -u2 -- "docker: failed to sync $local_dir to surface"
+    return 1
+  fi
 
   local -a compose_files
   local i=1
@@ -75,12 +89,14 @@ _docker_remote_compose() {
 
   local watcher
   watcher=$(_docker_remote_watch_start "$local_dir")
+  trap '_docker_remote_watch_stop "$watcher"' EXIT INT TERM
 
   ssh -t "${port_args[@]}" surface "cd '$remote_dir' && docker compose $*"
   local status=$?
 
   _docker_remote_watch_stop "$watcher"
-  _docker_remote_sync_from "$local_dir"
+  trap - EXIT INT TERM
+  _docker_remote_sync_from "$local_dir" "$remote_dir"
 
   return $status
 }
@@ -88,6 +104,7 @@ _docker_remote_compose() {
 _docker_remote_run() {
   local -a args=("$@")
   local -a local_paths
+  local -a remote_paths
   local -a port_args
   local i=1
 
@@ -101,8 +118,11 @@ _docker_remote_run() {
           local abs_src="${src:A}"
           local remote_path
           remote_path=$(_docker_remote_sync_to "$abs_src")
-          args[i]="${remote_path}${spec#$src}"
-          local_paths+=("$abs_src")
+          if [[ -n "$remote_path" ]]; then
+            args[i]="${remote_path}${spec#$src}"
+            local_paths+=("$abs_src")
+            remote_paths+=("$remote_path")
+          fi
         fi
         ;;
       --mount)
@@ -114,8 +134,11 @@ _docker_remote_run() {
             local abs_src="${src:A}"
             local remote_path
             remote_path=$(_docker_remote_sync_to "$abs_src")
-            args[i]="${args[i]/source=$src/source=$remote_path}"
-            local_paths+=("$abs_src")
+            if [[ -n "$remote_path" ]]; then
+              args[i]="${args[i]/source=$src/source=$remote_path}"
+              local_paths+=("$abs_src")
+              remote_paths+=("$remote_path")
+            fi
           fi
         fi
         ;;
@@ -131,16 +154,16 @@ _docker_remote_run() {
   local watcher
   if (( ${#local_paths} > 0 )); then
     watcher=$(_docker_remote_watch_start "${local_paths[@]}")
+    trap '_docker_remote_watch_stop "$watcher"' EXIT INT TERM
   fi
 
   ssh -t "${port_args[@]}" surface "docker run ${args[*]}"
   local status=$?
 
-  if [[ -n "$watcher" ]]; then
-    _docker_remote_watch_stop "$watcher"
-  fi
-  for p in "${local_paths[@]}"; do
-    _docker_remote_sync_from "$p"
+  _docker_remote_watch_stop "$watcher"
+  trap - EXIT INT TERM
+  for (( i = 1; i <= ${#local_paths}; i++ )); do
+    _docker_remote_sync_from "${local_paths[i]}" "${remote_paths[i]}"
   done
 
   return $status
