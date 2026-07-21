@@ -12,6 +12,6 @@
 
   services.ssh-agent.enable = true;
 
-  xdg.configFile."mise/conf.d/10-surface.toml".source =
-    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/surface.toml";
+  xdg.configFile."mise/conf.d/10-linux-minimal.toml".source =
+    config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/linux-minimal.toml";
 }
