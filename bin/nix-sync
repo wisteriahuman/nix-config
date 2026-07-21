@@ -1,0 +1,37 @@
+#!/bin/sh
+set -e
+
+REPO_DIR="$HOME/Projects/nix-config"
+
+_detect_role() {
+  if [ "$(uname -s)" = "Darwin" ]; then
+    echo mac-full
+  else
+    echo linux-minimal
+  fi
+}
+
+_resolve_role() {
+  if [ -n "$1" ]; then
+    echo "$1"
+    return
+  fi
+  if [ -n "$NIXCONFIG_ROLE" ]; then
+    echo "$NIXCONFIG_ROLE"
+    return
+  fi
+  detected=$(_detect_role)
+  if { printf "Detected role: %s. Press Enter to accept, or type a different role: " "$detected" > /dev/tty
+       read -r answer < /dev/tty; } 2>/dev/null; then
+    echo "${answer:-$detected}"
+  else
+    echo "$detected"
+  fi
+}
+
+role=$(_resolve_role "$1")
+echo "==> role: $role"
+
+cd "$REPO_DIR"
+git pull
+home-manager switch --flake "$REPO_DIR#wisteria@$role"

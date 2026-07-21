@@ -11,14 +11,14 @@
 
   outputs = { self, nixpkgs, home-manager, ... }:
     {
-      homeConfigurations."wisteria@m5-macbook-air" = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations."wisteria@mac-full" = home-manager.lib.homeManagerConfiguration {
         pkgs = nixpkgs.legacyPackages."aarch64-darwin";
-        modules = [ ./hosts/m5-macbook-air.nix ];
+        modules = [ ./hosts/mac-full.nix ];
       };
 
-      homeConfigurations."wisteria@surface" = home-manager.lib.homeManagerConfiguration {
+      homeConfigurations."wisteria@linux-minimal" = home-manager.lib.homeManagerConfiguration {
         pkgs = nixpkgs.legacyPackages."x86_64-linux";
-        modules = [ ./hosts/surface.nix ];
+        modules = [ ./hosts/linux-minimal.nix ];
       };
     };
 }
