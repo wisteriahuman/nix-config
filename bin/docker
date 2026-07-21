@@ -91,6 +91,7 @@ _docker_remote_compose() {
   watcher=$(_docker_remote_watch_start "$local_dir")
   trap '_docker_remote_watch_stop "$watcher"' EXIT INT TERM
 
+  print -u2 -- "docker: running on surface"
   ssh -t "${port_args[@]}" surface "cd '$remote_dir' && docker compose $*"
   local status=$?
 
@@ -157,6 +158,7 @@ _docker_remote_run() {
     trap '_docker_remote_watch_stop "$watcher"' EXIT INT TERM
   fi
 
+  print -u2 -- "docker: running on surface"
   ssh -t "${port_args[@]}" surface "docker run ${args[*]}"
   local status=$?
 
