@@ -8,13 +8,15 @@
 
   home.stateVersion = "25.05";
 
+  home.packages = [ pkgs.wget ];
+
   xdg.configFile = {
     "wezterm/wezterm.lua".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/wezterm/wezterm.lua";
     "wezterm/keybinds.lua".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/wezterm/keybinds.lua";
-    "mise/config.toml".source =
-      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/config.toml";
+    "mise/conf.d/10-mac.toml".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/mac.toml";
     "zsh/.zprofile".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/zsh/.zprofile";
   };

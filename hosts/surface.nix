@@ -10,6 +10,6 @@
 
   home.packages = [ pkgs.mise pkgs.gcc ];
 
-  xdg.configFile."mise/config.toml".source =
+  xdg.configFile."mise/conf.d/10-surface.toml".source =
     config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/surface.toml";
 }

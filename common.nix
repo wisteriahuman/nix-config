@@ -11,6 +11,7 @@
     fd
     tree-sitter
     lazygit
+    unzip
   ];
 
   programs.home-manager.enable = true;
@@ -29,5 +30,7 @@
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/zsh/.p10k.zsh";
     "nvim".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/nvim";
+    "mise/conf.d/00-common.toml".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/mise/common.toml";
   };
 }
