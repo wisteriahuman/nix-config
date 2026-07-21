@@ -25,10 +25,10 @@ _docker_remote_sync_to() {
   remote_path=$(ssh surface "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"")
   [[ -z "$remote_path" ]] && return 1
   if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --delete --exclude=.git "${local_path}/" "surface:${remote_path}/"
+    rsync -az -q --checksum --update --delete --exclude=.git "${local_path}/" "surface:${remote_path}/" >/dev/null
   else
     print -u2 -- "docker: syncing ${local_path} -> surface"
-    rsync -az --info=progress2 --delete --exclude=.git "${local_path}/" "surface:${remote_path}/"
+    rsync -az --checksum --update --info=progress2 --delete --exclude=.git "${local_path}/" "surface:${remote_path}/" 1>&2
   fi
   print -r -- "$remote_path"
 }
@@ -36,8 +36,13 @@ _docker_remote_sync_to() {
 _docker_remote_sync_from() {
   local local_path=$1
   local remote_path=$2
-  print -u2 -- "docker: syncing results back from surface"
-  rsync -az --info=progress2 "surface:${remote_path}/" "${local_path}/"
+  local quiet=$3
+  if [[ "$quiet" == "quiet" ]]; then
+    rsync -az -q --checksum --update "surface:${remote_path}/" "${local_path}/" >/dev/null 2>&1
+  else
+    print -u2 -- "docker: syncing results back from surface"
+    rsync -az --checksum --update --info=progress2 "surface:${remote_path}/" "${local_path}/" 1>&2
+  fi
 }
 
 _docker_remote_watch_start() {
@@ -47,7 +52,21 @@ _docker_remote_watch_start() {
         _docker_remote_sync_to "$p" quiet >/dev/null
       done
     done
-  ) &
+  ) >/dev/null 2>&1 </dev/null &
+  print -r -- $!
+}
+
+_docker_remote_pull_start() {
+  local -a pairs=("$@")
+  (
+    while true; do
+      sleep 3
+      local pair
+      for pair in "${pairs[@]}"; do
+        _docker_remote_sync_from "${pair%%:::*}" "${pair#*:::}" quiet
+      done
+    done
+  ) >/dev/null 2>&1 </dev/null &
   print -r -- $!
 }
 
@@ -89,17 +108,20 @@ _docker_remote_compose() {
 
   local watcher
   watcher=$(_docker_remote_watch_start "$local_dir")
-  trap '_docker_remote_watch_stop "$watcher"' EXIT INT TERM
+  local puller
+  puller=$(_docker_remote_pull_start "${local_dir}:::${remote_dir}")
+  trap '_docker_remote_watch_stop "$watcher"; _docker_remote_watch_stop "$puller"' EXIT INT TERM
 
   print -u2 -- "docker: running on surface"
   ssh -t "${port_args[@]}" surface "cd '$remote_dir' && docker compose $*"
-  local status=$?
+  local exit_code=$?
 
   _docker_remote_watch_stop "$watcher"
+  _docker_remote_watch_stop "$puller"
   trap - EXIT INT TERM
   _docker_remote_sync_from "$local_dir" "$remote_dir"
 
-  return $status
+  return $exit_code
 }
 
 _docker_remote_run() {
@@ -152,23 +174,29 @@ _docker_remote_run() {
     (( i++ ))
   done
 
-  local watcher
+  local watcher puller
   if (( ${#local_paths} > 0 )); then
     watcher=$(_docker_remote_watch_start "${local_paths[@]}")
-    trap '_docker_remote_watch_stop "$watcher"' EXIT INT TERM
+    local -a pairs
+    for (( i = 1; i <= ${#local_paths}; i++ )); do
+      pairs+=("${local_paths[i]}:::${remote_paths[i]}")
+    done
+    puller=$(_docker_remote_pull_start "${pairs[@]}")
+    trap '_docker_remote_watch_stop "$watcher"; _docker_remote_watch_stop "$puller"' EXIT INT TERM
   fi
 
   print -u2 -- "docker: running on surface"
   ssh -t "${port_args[@]}" surface "docker run ${args[*]}"
-  local status=$?
+  local exit_code=$?
 
   _docker_remote_watch_stop "$watcher"
+  _docker_remote_watch_stop "$puller"
   trap - EXIT INT TERM
   for (( i = 1; i <= ${#local_paths}; i++ )); do
     _docker_remote_sync_from "${local_paths[i]}" "${remote_paths[i]}"
   done
 
-  return $status
+  return $exit_code
 }
 
 case "$1" in
