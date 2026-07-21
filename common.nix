@@ -8,6 +8,9 @@
     bat
     sheldon
     zoxide
+    fd
+    tree-sitter
+    lazygit
   ];
 
   programs.home-manager.enable = true;
