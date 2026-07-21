@@ -8,7 +8,7 @@
 
   home.stateVersion = "25.05";
 
-  home.packages = [ pkgs.wget ];
+  home.packages = with pkgs; [ wget xcodegen ];
 
   xdg.configFile = {
     "wezterm/wezterm.lua".source =

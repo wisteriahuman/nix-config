@@ -12,6 +12,16 @@
     tree-sitter
     lazygit
     unzip
+    fastfetch
+    chafa
+    cowsay
+    tree
+    qrencode
+    pngquant
+    fswatch
+    gh
+    poppler
+    mpv
   ];
 
   programs.home-manager.enable = true;
