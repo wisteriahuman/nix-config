@@ -24,6 +24,7 @@
     mpv
     rsync
     git
+    tmux
   ];
 
   programs.home-manager.enable = true;
