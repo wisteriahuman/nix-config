@@ -22,6 +22,7 @@
     gh
     poppler
     mpv
+    yt-dlp
     rsync
     git
     tmux
