@@ -10,6 +10,11 @@
 
   home.packages = with pkgs; [ wget xcodegen ];
 
+  home.file = {
+    ".local/bin/tailscale".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/tailscale";
+  };
+
   xdg.configFile = {
     "wezterm/wezterm.lua".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/wezterm/wezterm.lua";
