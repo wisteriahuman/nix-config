@@ -123,7 +123,11 @@ if [ -n "$attrs" ] && ! printf '%s' "$attrs" | grep -qF "\"$attr\""; then
 fi
 
 echo "==> Running home-manager switch"
-nix run home-manager -- switch --flake "$REPO_DIR#$attr"
+# USER が未設定のコンテナ等でも common.nix がアカウント名を拾えるようにしておく。
+# --impure は common.nix が USER/HOME を読むため（ユーザ名がマシンごとに違う）。
+USER="${USER:-$(id -un)}"
+export USER
+nix run home-manager -- switch --flake "$REPO_DIR#$attr" --impure
 
 # --- ログインシェルを zsh に (apt / sudo に依存しない) ---------------------
 _zsh_bin() {

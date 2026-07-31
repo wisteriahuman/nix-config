@@ -38,6 +38,16 @@ home-manager switch --flake ~/Projects/nix-config#wisteria@linux-minimal-aarch64
 
 `wisteria@<role>`（system無し）も別名として残してあり、その role の既定システム（`flake.nix`の`systems`の先頭）を指す。
 
+## ユーザ名
+
+`home.username` / `home.homeDirectory` はハードコードせず、実行中のアカウント（`USER`→`LOGNAME`、ホームは`HOME`）から決める。クラウドVMのように`ubuntu`・`ec2-user`などアカウント名が違うマシンでも、同じroleをそのまま使い回せる。このため`home-manager switch`には`--impure`が必要で、`bootstrap.sh`と`nix-sync`は自動で付ける。手で打つ場合:
+
+```sh
+home-manager switch --flake ~/Projects/nix-config#wisteria@linux-minimal-aarch64-linux --impure
+```
+
+`NIXCONFIG_USER`で明示的に上書きもできる。（attr名の`wisteria@`は歴史的なラベルで、実際のアカウント名とは無関係）
+
 ## 日常の同期
 
 設定を変更してpushした後、他のマシンに反映する:
@@ -50,6 +60,8 @@ nix-sync
 
 - `mac-full` — メインの開発機（Mac）。wezterm、mise(フル)、`bin/docker`など一式。`aarch64-darwin` / `x86_64-darwin`
 - `linux-minimal` — SSH接続で使うLinuxサーバ向けの最小構成（Neovim中心）。新しいLinux機(WSL含む)はこれを使い回す想定。`x86_64-linux` / `aarch64-linux`
+
+Neovimはnix管理（`common.nix`）なので、`mise install`を待たずbootstrap完了時点で使える。言語ランタイム類は`mise/`側。
 
 新しい役割を追加する場合は、`hosts/`に倣って新規ファイルを作り、`flake.nix`の`roles`に1エントリ（`module`と対応`systems`）を追加する。既存roleを別アーキテクチャに対応させる場合は、その role の`systems`に追記するだけでよい。
 

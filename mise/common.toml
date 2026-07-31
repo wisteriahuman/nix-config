@@ -1,2 +1,3 @@
+# 全roleで共通の mise 管理ツール。
+# neovim はコアのエディタなので nix (common.nix) に移した。
 [tools]
-neovim = "latest"

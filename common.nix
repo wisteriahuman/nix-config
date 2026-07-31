@@ -1,7 +1,31 @@
 { pkgs, config, lib, ... }:
 
+let
+  # ログイン中のアカウント名に追従する。クラウドVMなど、ユーザ名が wisteria とは
+  # 限らないマシンでも同じ role をそのまま使い回せるようにするため。
+  # bootstrap.sh / nix-sync は home-manager switch に --impure を付けて呼ぶ。
+  # 純粋評価では getEnv が "" を返すので、その場合は既定値にフォールバックする。
+  firstNonEmpty = lib.findFirst (s: s != "") "";
+
+  username =
+    let v = firstNonEmpty (map builtins.getEnv [ "NIXCONFIG_USER" "USER" "LOGNAME" ]);
+    in if v != "" then v else "wisteria";
+
+  homeDirectory =
+    let v = builtins.getEnv "HOME";
+    in
+    if v != "" then v
+    else if pkgs.stdenv.hostPlatform.isDarwin then "/Users/${username}"
+    else "/home/${username}";
+in
 {
+  home.username = username;
+  home.homeDirectory = homeDirectory;
+
   home.packages = with pkgs; [
+    # コアのエディタなので mise ではなく nix 側で入れる。
+    # bootstrap 直後（mise install 前）から使え、アーキテクチャも自動で合う。
+    neovim
     ripgrep
     fzf
     eza

@@ -52,4 +52,7 @@ echo "==> system: $system"
 
 cd "$REPO_DIR"
 git pull
-home-manager switch --flake "$REPO_DIR#wisteria@$role-$system"
+# --impure は common.nix が USER/HOME を読むため（ユーザ名がマシンごとに違う）
+USER="${USER:-$(id -un)}"
+export USER
+home-manager switch --flake "$REPO_DIR#wisteria@$role-$system" --impure

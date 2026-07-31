@@ -3,8 +3,7 @@
 {
   imports = [ ../common.nix ];
 
-  home.username = "wisteria";
-  home.homeDirectory = "/home/wisteria";
+  # home.username / home.homeDirectory は common.nix が実行中のアカウントから決める
 
   home.stateVersion = "25.05";
 
