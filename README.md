@@ -4,7 +4,11 @@ Nix (home-manager) で管理する個人の環境設定。
 
 ## 前提条件
 
-- SSH鍵を用意し、GitHubに公開鍵を登録しておくこと（`ssh-keygen` → GitHubの Settings > SSH keys）
+- `curl` が使えること（他は不要。git・zshは無ければ`bootstrap.sh`がNix経由で用意する）
+- SSH鍵は**任意**。GitHubに公開鍵を登録済みならSSHでcloneし、未設定ならHTTPS（読み取り専用）に自動フォールバックする。あとからSSHに切り替えるには:
+  ```sh
+  git -C ~/Projects/nix-config remote set-url origin git@github.com:wisteriahuman/nix-config.git
+  ```
 
 ## 新しいマシンでのセットアップ
 
@@ -22,6 +26,18 @@ NIXCONFIG_ROLE=linux-minimal curl -fsSL https://raw.githubusercontent.com/wister
 
 Nixのインストール直後は新しいシェルセッションを開いてから再実行が必要。
 
+`apt`や`sudo`には依存しない。zshはhome-manager（Linuxのみ）で入り、ログインシェルの切り替えは`chsh`が使えれば`chsh`、ダメなら`~/.profile`・`~/.bashrc`から対話シェル時にzshへ`exec`する形にフォールバックする（`NIXCONFIG_NO_ZSH=1`で無効化）。
+
+## CPUアーキテクチャ
+
+roleとCPUアーキテクチャは独立している。`bootstrap.sh`／`nix-sync`が`uname`から`system`（`x86_64-linux`, `aarch64-linux`, `aarch64-darwin`, `x86_64-darwin`）を判定し、`wisteria@<role>-<system>`を選ぶ。手で指定する場合:
+
+```sh
+home-manager switch --flake ~/Projects/nix-config#wisteria@linux-minimal-aarch64-linux
+```
+
+`wisteria@<role>`（system無し）も別名として残してあり、その role の既定システム（`flake.nix`の`systems`の先頭）を指す。
+
 ## 日常の同期
 
 設定を変更してpushした後、他のマシンに反映する:
@@ -32,10 +48,10 @@ nix-sync
 
 ## 役割(role)の一覧
 
-- `mac-full` — メインの開発機（Mac）。wezterm、mise(フル)、`bin/docker`など一式
-- `linux-minimal` — SSH接続で使うLinuxサーバ向けの最小構成（Neovim中心）。新しいLinux機(WSL含む)はこれを使い回す想定
+- `mac-full` — メインの開発機（Mac）。wezterm、mise(フル)、`bin/docker`など一式。`aarch64-darwin` / `x86_64-darwin`
+- `linux-minimal` — SSH接続で使うLinuxサーバ向けの最小構成（Neovim中心）。新しいLinux機(WSL含む)はこれを使い回す想定。`x86_64-linux` / `aarch64-linux`
 
-新しい役割を追加する場合は、`hosts/`に倣って新規ファイルを作り、`flake.nix`の`homeConfigurations`に1エントリ追加する。
+新しい役割を追加する場合は、`hosts/`に倣って新規ファイルを作り、`flake.nix`の`roles`に1エントリ（`module`と対応`systems`）を追加する。既存roleを別アーキテクチャに対応させる場合は、その role の`systems`に追記するだけでよい。
 
 ## `bin/docker`
 

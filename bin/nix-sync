@@ -29,9 +29,27 @@ _resolve_role() {
   fi
 }
 
+# uname から nix の system 文字列 (例: aarch64-linux) を組み立てる
+_detect_system() {
+  arch=$(uname -m)
+  case "$arch" in
+    x86_64|amd64) arch=x86_64 ;;
+    aarch64|arm64) arch=aarch64 ;;
+    i686|i386) arch=i686 ;;
+    armv7l|armv7) arch=armv7l ;;
+  esac
+  case "$(uname -s)" in
+    Darwin) echo "$arch-darwin" ;;
+    Linux) echo "$arch-linux" ;;
+    *) echo "$arch-$(uname -s | tr 'A-Z' 'a-z')" ;;
+  esac
+}
+
 role=$(_resolve_role "$1")
+system=$(_detect_system)
 echo "==> role: $role"
+echo "==> system: $system"
 
 cd "$REPO_DIR"
 git pull
-home-manager switch --flake "$REPO_DIR#wisteria@$role"
+home-manager switch --flake "$REPO_DIR#wisteria@$role-$system"

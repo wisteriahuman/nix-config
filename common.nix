@@ -1,4 +1,4 @@
-{ pkgs, config, ... }:
+{ pkgs, config, lib, ... }:
 
 {
   home.packages = with pkgs; [
@@ -26,6 +26,10 @@
     rsync
     git
     tmux
+  ] ++ lib.optionals stdenv.hostPlatform.isLinux [
+    # macOS には最初から入っているが、Linux(特に最小構成のサーバ・コンテナ)には
+    # 無いことが多い。apt に頼らず nix 側で用意する。
+    zsh
   ];
 
   programs.home-manager.enable = true;
