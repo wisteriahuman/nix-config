@@ -1,8 +1,23 @@
 local wezterm = require("wezterm")
 local act = wezterm.action
 
-return {
+local M = {}
+
+function M.build(theme)
+  return {
   keys = {
+    {
+      key = "t",
+      mods = "LEADER",
+      action = act.PromptInputLine({
+        description = "Theme (id / role / slot / slot=id):",
+        action = wezterm.action_callback(function(window, pane, line)
+          theme.switch(window, pane, line)
+        end),
+      }),
+    },
+    { key = "T", mods = "LEADER|SHIFT", action = theme.picker_action() },
+
     { key = "d", mods = "CMD", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
     { key = "d", mods = "CMD|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
     { key = "w", mods = "CMD|OPT", action = act.CloseCurrentPane({ confirm = false }) },
@@ -70,4 +85,7 @@ return {
       { key = "Enter", action = "PopKeyTable" },
     },
   },
-}
+  }
+end
+
+return M
