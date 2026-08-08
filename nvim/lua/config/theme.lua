@@ -8,20 +8,14 @@ local state_dir = (os.getenv("HOME") or vim.fn.expand("~")) .. "/.local/state/th
 local current_file = state_dir .. "/current"
 local slots_file = state_dir .. "/slots.json"
 
--- snacks.nvim のデフォルトヘッダー (lua/snacks/dashboard.lua の defaults.preset.header と同じ)。
--- mochipop 系以外に戻したときの復元用。
-local DEFAULT_DASHBOARD_HEADER = [[
-███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗
-████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║
-██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║
-██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║
-██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║
-╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝]]
-
-local MOCHIPOP_DASHBOARD_HEADER = [[
-⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆
-     m  o  c  h  i  p  o  p
-⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆]]
+-- 起動画面のヘッダーはテーマに関係なく "WISTERIA" で統一する (ansi_shadow フォント)。
+local WISTERIA_DASHBOARD_HEADER = [[
+██╗    ██╗██╗███████╗████████╗███████╗██████╗ ██╗ █████╗
+██║    ██║██║██╔════╝╚══██╔══╝██╔════╝██╔══██╗██║██╔══██╗
+██║ █╗ ██║██║███████╗   ██║   █████╗  ██████╔╝██║███████║
+██║███╗██║██║╚════██║   ██║   ██╔══╝  ██╔══██╗██║██╔══██║
+╚███╔███╔╝██║███████║   ██║   ███████╗██║  ██║██║██║  ██║
+ ╚══╝╚══╝ ╚═╝╚══════╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝╚═╝  ╚═╝]]
 
 -- bufferline の見た目のうち区切り形状(separator_style/indicator)だけがテーマ依存。
 -- それ以外は共通のベースとして保持し、テーマ切替のたびに setup() し直す。
@@ -56,6 +50,7 @@ local THEMES = {
   tokyonight = {
     tags = { "dark", "classic" },
     shape = "tri",
+    smear_color = "#bb9af7",
     apply = function()
       require("tokyonight").setup({
         transparent = true,
@@ -70,6 +65,7 @@ local THEMES = {
   mocha = {
     tags = { "dark", "kawaii", "classic" },
     shape = "round",
+    smear_color = "#cba6f7",
     apply = function()
       require("catppuccin").setup({ flavour = "mocha", transparent_background = true })
       vim.cmd.colorscheme("catppuccin")
@@ -78,6 +74,7 @@ local THEMES = {
   latte = {
     tags = { "light", "kawaii", "classic" },
     shape = "round",
+    smear_color = "#8839ef",
     apply = function()
       require("catppuccin").setup({ flavour = "latte", transparent_background = true })
       vim.cmd.colorscheme("catppuccin")
@@ -86,6 +83,7 @@ local THEMES = {
   rosepine = {
     tags = { "dark", "elegant", "classic" },
     shape = "underline",
+    smear_color = "#c4a7e7",
     apply = function()
       require("rose-pine").setup({ variant = "main", styles = { transparency = true } })
       vim.cmd.colorscheme("rose-pine")
@@ -94,6 +92,7 @@ local THEMES = {
   dawn = {
     tags = { "light", "elegant", "classic" },
     shape = "underline",
+    smear_color = "#907aa9",
     apply = function()
       require("rose-pine").setup({ variant = "dawn", styles = { transparency = true } })
       vim.cmd.colorscheme("rose-pine")
@@ -103,7 +102,6 @@ local THEMES = {
     tags = { "dark", "kawaii", "buzz", "original" },
     shape = "round",
     smear_color = "#d9a4ff",
-    dashboard_header = MOCHIPOP_DASHBOARD_HEADER,
     apply = function()
       require("mini.base16").setup({
         use_cterm = true,
@@ -120,7 +118,6 @@ local THEMES = {
     tags = { "light", "kawaii", "buzz", "original" },
     shape = "round",
     smear_color = "#832eb8",
-    dashboard_header = MOCHIPOP_DASHBOARD_HEADER,
     apply = function()
       require("mini.base16").setup({
         use_cterm = true,
@@ -215,14 +212,14 @@ local function set_smear(color)
   end
 end
 
-local function set_dashboard(header)
+local function set_dashboard()
   local ok, snacks = pcall(require, "snacks")
   if not ok or not snacks.config or not snacks.config.dashboard then
     return
   end
   local dash_cfg = snacks.config.dashboard
   dash_cfg.preset = dash_cfg.preset or {}
-  dash_cfg.preset.header = header or DEFAULT_DASHBOARD_HEADER
+  dash_cfg.preset.header = WISTERIA_DASHBOARD_HEADER
 end
 
 local function set_bufferline(shape)
@@ -244,7 +241,7 @@ function M.apply(id)
   end
   theme.apply()
   set_smear(theme.smear_color)
-  set_dashboard(theme.dashboard_header)
+  set_dashboard()
   set_bufferline(theme.shape)
   last_applied = id
   write_current(id)
