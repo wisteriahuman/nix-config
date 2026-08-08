@@ -23,4 +23,9 @@ return {
     lazy = false,
     priority = 1000,
   },
+  {
+    "sphamba/smear-cursor.nvim",
+    lazy = false,
+    priority = 1000,
+  },
 }

@@ -17,6 +17,9 @@ local THEMES = {
     bg = "#1a1b26",
     tab_bg = "#292e42", tab_fg2 = "#c0caf5",
     tab_accent = "#9ece6a", tab_hover = "#73daca", tab_fg = "#1a1b26",
+    tab_style = "tri",
+    padding = { left = 10, right = 10, top = 10, bottom = 10 },
+    cursor_style = "BlinkingBlock", cursor_blink_rate = 500,
   },
   mocha = {
     tags = { "dark", "kawaii", "classic" },
@@ -24,6 +27,9 @@ local THEMES = {
     bg = "#1e1e2e",
     tab_bg = "#313244", tab_fg2 = "#cdd6f4",
     tab_accent = "#a6e3a1", tab_hover = "#94e2d5", tab_fg = "#1e1e2e",
+    tab_style = "round",
+    padding = { left = 18, right = 18, top = 16, bottom = 16 },
+    cursor_style = "SteadyBlock", cursor_blink_rate = 500,
   },
   latte = {
     tags = { "light", "kawaii", "classic" },
@@ -31,6 +37,9 @@ local THEMES = {
     bg = "#eff1f5",
     tab_bg = "#ccd0da", tab_fg2 = "#4c4f69",
     tab_accent = "#40a02b", tab_hover = "#179299", tab_fg = "#eff1f5",
+    tab_style = "round",
+    padding = { left = 18, right = 18, top = 16, bottom = 16 },
+    cursor_style = "SteadyBlock", cursor_blink_rate = 500,
   },
   rosepine = {
     tags = { "dark", "elegant", "classic" },
@@ -38,6 +47,9 @@ local THEMES = {
     bg = "#191724",
     tab_bg = "#26233a", tab_fg2 = "#e0def4",
     tab_accent = "#31748f", tab_hover = "#9ccfd8", tab_fg = "#191724",
+    tab_style = "underline",
+    padding = { left = 24, right = 24, top = 20, bottom = 20 },
+    cursor_style = "BlinkingBar", cursor_blink_rate = 900,
   },
   dawn = {
     tags = { "light", "elegant", "classic" },
@@ -45,12 +57,18 @@ local THEMES = {
     bg = "#faf4ed",
     tab_bg = "#f2e9e1", tab_fg2 = "#575279",
     tab_accent = "#286983", tab_hover = "#56949f", tab_fg = "#faf4ed",
+    tab_style = "underline",
+    padding = { left = 24, right = 24, top = 20, bottom = 20 },
+    cursor_style = "BlinkingBar", cursor_blink_rate = 900,
   },
   mochi = {
     tags = { "dark", "kawaii", "buzz", "original" },
     bg = "#221a2c",
     tab_bg = "#2c2138", tab_fg2 = "#f5e8f7",
     tab_accent = "#d9a4ff", tab_hover = "#8fc4ff", tab_fg = "#221a2c",
+    tab_style = "round",
+    padding = { left = 12, right = 12, top = 10, bottom = 10 },
+    cursor_style = "BlinkingBlock", cursor_blink_rate = 500,
     colors = {
       foreground = "#f5e8f7",
       background = "#221a2c",
@@ -67,17 +85,20 @@ local THEMES = {
     tags = { "light", "kawaii", "buzz", "original" },
     bg = "#fff5fa",
     tab_bg = "#ffe9f3", tab_fg2 = "#4a2b45",
-    tab_accent = "#b968e0", tab_hover = "#4f8fe0", tab_fg = "#fff5fa",
+    tab_accent = "#832eb8", tab_hover = "#2a68c6", tab_fg = "#fff5fa",
+    tab_style = "round",
+    padding = { left = 12, right = 12, top = 10, bottom = 10 },
+    cursor_style = "BlinkingBlock", cursor_blink_rate = 500,
     colors = {
       foreground = "#4a2b45",
       background = "#fff5fa",
-      cursor_bg = "#b968e0",
+      cursor_bg = "#832eb8",
       cursor_fg = "#fff5fa",
-      cursor_border = "#b968e0",
+      cursor_border = "#832eb8",
       selection_bg = "#ffd9ec",
       selection_fg = "#4a2b45",
-      ansi = { "#fff5fa", "#e0507a", "#3fb88f", "#e0a23d", "#4f8fe0", "#b968e0", "#2fb0c4", "#4a2b45" },
-      brights = { "#9c6f92", "#ea6f92", "#5fd0a8", "#f0bc5a", "#78adf5", "#d190ef", "#5fd0dc", "#2e1a2b" },
+      ansi = { "#fff5fa", "#c3225c", "#1e764c", "#985c16", "#2a68c6", "#832eb8", "#197676", "#4a2b45" },
+      brights = { "#81567a", "#df2065", "#1d8b56", "#ae6713", "#3376db", "#932dd2", "#188686", "#2e1a2b" },
     },
   },
 }
@@ -267,8 +288,10 @@ wezterm.on("update-right-status", function(window)
   window:set_right_status(name and ("TABLE: " .. name) or "")
 end)
 
-local SOLID_LEFT_ARROW = wezterm.nerdfonts.ple_lower_right_triangle
-local SOLID_RIGHT_ARROW = wezterm.nerdfonts.ple_upper_left_triangle
+local TRI_LEFT = wezterm.nerdfonts.ple_lower_right_triangle
+local TRI_RIGHT = wezterm.nerdfonts.ple_upper_left_triangle
+local ROUND_LEFT = wezterm.nerdfonts.ple_left_half_circle_thick
+local ROUND_RIGHT = wezterm.nerdfonts.ple_right_half_circle_thick
 
 wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_width)
   local background = current_theme.tab_bg
@@ -282,20 +305,36 @@ wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_wid
     foreground = current_theme.tab_fg
   end
 
+  local title = "  " .. tab.tab_index + 1 .. ": " .. wezterm.truncate_right(tab.active_pane.title, max_width - 8) .. "  "
+
+  -- underline: 背景ブロックを持たず、下線と太字で現在地を示す控えめなタブ
+  if current_theme.tab_style == "underline" then
+    local items = { { Foreground = { Color = background } } }
+    if tab.is_active then
+      table.insert(items, { Attribute = { Underline = "Single", Intensity = "Bold" } })
+    end
+    table.insert(items, { Text = title })
+    return items
+  end
+
+  local left_glyph, right_glyph = TRI_LEFT, TRI_RIGHT
+  if current_theme.tab_style == "round" then
+    left_glyph, right_glyph = ROUND_LEFT, ROUND_RIGHT
+  end
+
   local edge_background = "none"
   local edge_foreground = background
-  local title = " " .. tab.tab_index + 1 .. ": " .. wezterm.truncate_right(tab.active_pane.title, max_width - 6) .. " "
 
   return {
     { Background = { Color = edge_background } },
     { Foreground = { Color = edge_foreground } },
-    { Text = SOLID_LEFT_ARROW },
+    { Text = left_glyph },
     { Background = { Color = background } },
     { Foreground = { Color = foreground } },
     { Text = title },
     { Background = { Color = edge_background } },
     { Foreground = { Color = edge_foreground } },
-    { Text = SOLID_RIGHT_ARROW },
+    { Text = right_glyph },
   }
 end)
 
@@ -318,20 +357,32 @@ config.use_ime = true
 
 if current_theme.scheme then
   config.color_scheme = current_theme.scheme
-  config.colors = { tab_bar = { inactive_tab_edge = "none" } }
+  config.colors = { tab_bar = { inactive_tab_edge = "none" }, split = current_theme.tab_accent }
 elseif current_theme.colors then
   config.colors = current_theme.colors
   config.colors.tab_bar = { inactive_tab_edge = "none" }
+  config.colors.split = current_theme.tab_accent
 end
 
-config.window_padding = {
-  left = 10,
-  right = 10,
-  top = 10,
-  bottom = 10,
-}
-config.window_background_opacity = 0.75
-config.macos_window_background_blur = 20
+config.window_padding = current_theme.padding
+
+local is_light = false
+for _, tag in ipairs(current_theme.tags) do
+  if tag == "light" then
+    is_light = true
+    break
+  end
+end
+
+-- 透過+ブラーは背後のデスクトップと混ざってパステルが濁る/コントラストが狂うので、
+-- ライト系テーマでは不透明にする。
+if is_light then
+  config.window_background_opacity = 1.0
+  config.macos_window_background_blur = 0
+else
+  config.window_background_opacity = 0.75
+  config.macos_window_background_blur = 20
+end
 config.window_decorations = "RESIZE"
 
 config.leader = { key = "Space", mods = "CTRL", timeout_milliseconds = 2000 }
@@ -342,6 +393,7 @@ config.show_new_tab_button_in_tab_bar = false
 config.window_frame = {
   inactive_titlebar_bg = "none",
   active_titlebar_bg = "none",
+  font_size = 14.0,
 }
 config.window_background_gradient = {
   colors = { current_theme.bg },
@@ -350,8 +402,8 @@ config.window_background_gradient = {
 config.keys = keybinds.keys
 config.key_tables = keybinds.key_tables
 
-config.default_cursor_style = "BlinkingBlock"
-config.cursor_blink_rate = 500
+config.default_cursor_style = current_theme.cursor_style
+config.cursor_blink_rate = current_theme.cursor_blink_rate
 config.scrollback_lines = 10000
 
 return config

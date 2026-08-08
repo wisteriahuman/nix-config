@@ -1,31 +1,11 @@
+-- separator_style/indicator は config/theme.lua がテーマごとに setup() し直す。
+-- ここでは base の見た目とキーマップだけを持つ。
 return {
   {
     "akinsho/bufferline.nvim",
     version = "*",
     dependencies = { "nvim-tree/nvim-web-devicons" },
     config = function()
-      require("bufferline").setup({
-        options = {
-          numbers = "ordinal",
-          diagnostics = "nvim_lsp",
-          diagnostics_indicator = function(count, level)
-            local icon = level:match("error") and " " or " "
-            return " " .. icon .. count
-          end,
-          show_buffer_close_icons = true,
-          show_close_icon = false,
-          separator_style = "slant",
-          offsets = {
-            {
-              filetype = "neo-tree",
-              text = "File Explorer",
-              text_align = "left",
-              separator = true,
-            },
-          },
-        },
-      })
-
       local map = vim.keymap.set
       map("n", "<A-,>", "<cmd>BufferLineCyclePrev<CR>", { desc = "Previous Buffer" })
       map("n", "<A-.>", "<cmd>BufferLineCycleNext<CR>", { desc = "Next Buffer" })

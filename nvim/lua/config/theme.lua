@@ -8,9 +8,54 @@ local state_dir = (os.getenv("HOME") or vim.fn.expand("~")) .. "/.local/state/th
 local current_file = state_dir .. "/current"
 local slots_file = state_dir .. "/slots.json"
 
+-- snacks.nvim のデフォルトヘッダー (lua/snacks/dashboard.lua の defaults.preset.header と同じ)。
+-- mochipop 系以外に戻したときの復元用。
+local DEFAULT_DASHBOARD_HEADER = [[
+███╗   ██╗███████╗ ██████╗ ██╗   ██╗██╗███╗   ███╗
+████╗  ██║██╔════╝██╔═══██╗██║   ██║██║████╗ ████║
+██╔██╗ ██║█████╗  ██║   ██║██║   ██║██║██╔████╔██║
+██║╚██╗██║██╔══╝  ██║   ██║╚██╗ ██╔╝██║██║╚██╔╝██║
+██║ ╚████║███████╗╚██████╔╝ ╚████╔╝ ██║██║ ╚═╝ ██║
+╚═╝  ╚═══╝╚══════╝ ╚═════╝   ╚═══╝  ╚═╝╚═╝     ╚═╝]]
+
+local MOCHIPOP_DASHBOARD_HEADER = [[
+⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆
+     m  o  c  h  i  p  o  p
+⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆｡°✩⋆]]
+
+-- bufferline の見た目のうち区切り形状(separator_style/indicator)だけがテーマ依存。
+-- それ以外は共通のベースとして保持し、テーマ切替のたびに setup() し直す。
+local BUFFERLINE_BASE_OPTIONS = {
+  numbers = "ordinal",
+  diagnostics = "nvim_lsp",
+  diagnostics_indicator = function(count, level)
+    local icon = level:match("error") and " " or " "
+    return " " .. icon .. count
+  end,
+  show_buffer_close_icons = true,
+  show_close_icon = false,
+  offsets = {
+    {
+      filetype = "neo-tree",
+      text = "File Explorer",
+      text_align = "left",
+      separator = true,
+    },
+  },
+}
+
+-- config/theme.lua の shape (tri/round/underline) から
+-- wezterm 側のタブ形状と揃えた bufferline / snacks 通知の見た目を決める。
+local SHAPE_BUFFERLINE = {
+  tri = { separator_style = "slant", indicator = { style = "icon" } },
+  round = { separator_style = "thick", indicator = { style = "icon" } },
+  underline = { separator_style = "thin", indicator = { style = "underline" } },
+}
+
 local THEMES = {
   tokyonight = {
     tags = { "dark", "classic" },
+    shape = "tri",
     apply = function()
       require("tokyonight").setup({
         transparent = true,
@@ -24,6 +69,7 @@ local THEMES = {
   },
   mocha = {
     tags = { "dark", "kawaii", "classic" },
+    shape = "round",
     apply = function()
       require("catppuccin").setup({ flavour = "mocha", transparent_background = true })
       vim.cmd.colorscheme("catppuccin")
@@ -31,6 +77,7 @@ local THEMES = {
   },
   latte = {
     tags = { "light", "kawaii", "classic" },
+    shape = "round",
     apply = function()
       require("catppuccin").setup({ flavour = "latte", transparent_background = true })
       vim.cmd.colorscheme("catppuccin")
@@ -38,6 +85,7 @@ local THEMES = {
   },
   rosepine = {
     tags = { "dark", "elegant", "classic" },
+    shape = "underline",
     apply = function()
       require("rose-pine").setup({ variant = "main", styles = { transparency = true } })
       vim.cmd.colorscheme("rose-pine")
@@ -45,6 +93,7 @@ local THEMES = {
   },
   dawn = {
     tags = { "light", "elegant", "classic" },
+    shape = "underline",
     apply = function()
       require("rose-pine").setup({ variant = "dawn", styles = { transparency = true } })
       vim.cmd.colorscheme("rose-pine")
@@ -52,6 +101,9 @@ local THEMES = {
   },
   mochi = {
     tags = { "dark", "kawaii", "buzz", "original" },
+    shape = "round",
+    smear_color = "#d9a4ff",
+    dashboard_header = MOCHIPOP_DASHBOARD_HEADER,
     apply = function()
       require("mini.base16").setup({
         use_cterm = true,
@@ -66,14 +118,17 @@ local THEMES = {
   },
   sakura = {
     tags = { "light", "kawaii", "buzz", "original" },
+    shape = "round",
+    smear_color = "#832eb8",
+    dashboard_header = MOCHIPOP_DASHBOARD_HEADER,
     apply = function()
       require("mini.base16").setup({
         use_cterm = true,
         palette = {
-          base00 = "#fff5fa", base01 = "#ffe9f3", base02 = "#ffd9ec", base03 = "#9c6f92",
+          base00 = "#fff5fa", base01 = "#ffe9f3", base02 = "#ffd9ec", base03 = "#81567a",
           base04 = "#7a4f72", base05 = "#4a2b45", base06 = "#2e1a2b", base07 = "#200f1e",
-          base08 = "#e0507a", base09 = "#e0793d", base0A = "#e0a23d", base0B = "#3fb88f",
-          base0C = "#2fb0c4", base0D = "#4f8fe0", base0E = "#b968e0", base0F = "#b07a4f",
+          base08 = "#c3225c", base09 = "#ae4f19", base0A = "#985c16", base0B = "#1e764c",
+          base0C = "#197676", base0D = "#2a68c6", base0E = "#832eb8", base0F = "#8a5a3a",
         },
       })
     end,
@@ -141,6 +196,46 @@ local function read_slots()
   return { main = "tokyonight" }
 end
 
+local smear_setup_done = false
+
+local function set_smear(color)
+  local ok, sc = pcall(require, "smear_cursor")
+  if not ok then
+    return
+  end
+  if not smear_setup_done then
+    sc.setup({ enabled = false })
+    smear_setup_done = true
+  end
+  if color then
+    sc.cursor_color = color
+    sc.enabled = true
+  else
+    sc.enabled = false
+  end
+end
+
+local function set_dashboard(header)
+  local ok, snacks = pcall(require, "snacks")
+  if not ok or not snacks.config or not snacks.config.dashboard then
+    return
+  end
+  local dash_cfg = snacks.config.dashboard
+  dash_cfg.preset = dash_cfg.preset or {}
+  dash_cfg.preset.header = header or DEFAULT_DASHBOARD_HEADER
+end
+
+local function set_bufferline(shape)
+  local ok, bufferline = pcall(require, "bufferline")
+  if not ok then
+    return
+  end
+  local shape_opts = SHAPE_BUFFERLINE[shape] or SHAPE_BUFFERLINE.tri
+  bufferline.setup({
+    options = vim.tbl_deep_extend("force", {}, BUFFERLINE_BASE_OPTIONS, shape_opts),
+  })
+end
+
 function M.apply(id)
   local theme = THEMES[id]
   if not theme then
@@ -148,6 +243,9 @@ function M.apply(id)
     return
   end
   theme.apply()
+  set_smear(theme.smear_color)
+  set_dashboard(theme.dashboard_header)
+  set_bufferline(theme.shape)
   last_applied = id
   write_current(id)
 end
