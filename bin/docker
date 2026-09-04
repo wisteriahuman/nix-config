@@ -25,6 +25,11 @@ if ! _DOCKER_REMOTE_HOST=$(_docker_remote_target); then
   exit $?
 fi
 
+if ! command -v mutagen >/dev/null 2>&1; then
+  print -u2 -- "docker: docker context is remote (${_DOCKER_REMOTE_HOST}) but mutagen is not installed; add it via nix-config"
+  exit 127
+fi
+
 # ---- project identity: works for any directory, git or not ----
 _project_slug() {
   local abs="${1:A}"
@@ -49,95 +54,107 @@ _pid_alive() {
   [[ -n "$1" ]] && kill -0 "$1" 2>/dev/null
 }
 
-# mkdir-based mutex: portable (no flock(1) on macOS)
+# mkdir-based mutex: portable (no flock(1) on macOS). A crashed holder leaves the
+# lock behind, so break it when the recorded pid is gone rather than time out.
 _lock_acquire() {
   local lockdir=$1
   local tries=0
   while ! mkdir "$lockdir" 2>/dev/null; do
-    (( tries++ >= 100 )) && return 1
-    sleep 0.05
+    local holder
+    holder=$(cat "$lockdir/pid" 2>/dev/null)
+    if [[ -n "$holder" ]] && ! kill -0 "$holder" 2>/dev/null; then
+      rm -rf "$lockdir" 2>/dev/null
+      continue
+    fi
+    if (( tries++ >= 600 )); then
+      print -u2 -- "docker: timed out waiting for sync lock $lockdir"
+      return 1
+    fi
+    sleep 0.1
   done
+  print -r -- $$ > "$lockdir/pid"
   return 0
 }
 
 _lock_release() {
-  rmdir "$1" 2>/dev/null
+  rm -rf "$1" 2>/dev/null
 }
 
-_rsync_exclude_args() {
-  local local_path=$1
-  local -a ex=(--exclude=.git --exclude=.env '--exclude=.env.*')
-  local ignorefile="$local_path/.dockerremoteignore"
-  [[ -f "$ignorefile" ]] && ex+=(--exclude-from="$ignorefile")
-  print -r -- "${ex[@]}"
-}
-
-_docker_remote_sync_to() {
-  local local_path=$1
-  local quiet=$2
-  local rel_path="${local_path#/}"
-  local remote_path
-  remote_path=$(ssh "$_DOCKER_REMOTE_HOST" "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"")
-  [[ -z "$remote_path" ]] && return 1
-  local -a excludes=(${(z)$(_rsync_exclude_args "$local_path")})
-  if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --checksum --update --delete "${excludes[@]}" "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" >/dev/null
-  else
-    print -u2 -- "docker: syncing ${local_path} -> ${_DOCKER_REMOTE_HOST}"
-    rsync -az --checksum --update --info=progress2 --delete "${excludes[@]}" "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" 1>&2
-  fi
-  print -r -- "$remote_path"
-}
-
-_docker_remote_sync_from() {
-  local local_path=$1
-  local remote_path=$2
-  local quiet=$3
-  local -a excludes=(${(z)$(_rsync_exclude_args "$local_path")})
-  if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --checksum --update "${excludes[@]}" "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" >/dev/null 2>&1
-  else
-    print -u2 -- "docker: syncing results back from ${_DOCKER_REMOTE_HOST}"
-    rsync -az --checksum --update --info=progress2 "${excludes[@]}" "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" 1>&2
-  fi
-}
-
-_docker_remote_watch_start() {
-  (
-    fswatch -o "$@" 2>/dev/null | while read -r _; do
-      for p in "$@"; do
-        _docker_remote_sync_to "$p" quiet >/dev/null
-      done
-    done
-  ) >/dev/null 2>&1 </dev/null &
-  print -r -- $!
-}
-
-_docker_remote_pull_start() {
-  local -a pairs=("$@")
-  (
-    while true; do
-      sleep 3
-      local pair
-      for pair in "${pairs[@]}"; do
-        _docker_remote_sync_from "${pair%%:::*}" "${pair#*:::}" quiet
-      done
-    done
-  ) >/dev/null 2>&1 </dev/null &
-  print -r -- $!
-}
-
-# these background jobs don't get their own process group (no job control in a
-# script), so `kill -- -$pid` doesn't reach children - kill direct children
-# (fswatch / sleep) explicitly, then the wrapper subshell itself
-_docker_remote_watch_stop() {
+# background jobs don't get their own process group (no job control in a script),
+# so `kill -- -$pid` doesn't reach children - kill direct children then the pid.
+_kill_pid() {
   [[ -z "$1" ]] && return
   pkill -P "$1" 2>/dev/null
   kill "$1" 2>/dev/null
   wait "$1" 2>/dev/null
 }
 
-# Idempotent: sync + (re)start watcher/puller/tunnel only if not already alive.
+# ---- mutagen-backed file sync ----
+# One session per project directory, named from its slug. Bidirectional so
+# container-generated artifacts flow back; conflicts resolve in favour of the
+# Mac copy. The daemon is started on demand and stopped once no session is left.
+
+_mutagen_name() {
+  local s="${1//[^a-zA-Z0-9_-]/-}"
+  print -r -- "dr-${s[1,58]}"
+}
+
+_remote_sync_path() {
+  local local_path=$1
+  local rel_path="${local_path#/}"
+  ssh "$_DOCKER_REMOTE_HOST" \
+    "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"" 2>/dev/null
+}
+
+typeset -ga _MUTAGEN_IGNORE
+
+# .dockerremoteignore entries are passed through as mutagen ignore patterns
+# (gitignore-like syntax, not rsync's).
+_mutagen_build_ignore() {
+  local local_path=$1
+  _MUTAGEN_IGNORE=(--ignore-vcs --ignore '.env' --ignore '.env.*')
+  local ignorefile="$local_path/.dockerremoteignore"
+  [[ -f "$ignorefile" ]] || return 0
+  local line
+  while IFS= read -r line; do
+    [[ -z "$line" || "$line" == '#'* ]] && continue
+    _MUTAGEN_IGNORE+=(--ignore "$line")
+  done < "$ignorefile"
+}
+
+_mutagen_session_exists() {
+  command mutagen sync list --template '{{range .}}{{.Name}}{{"\n"}}{{end}}' 2>/dev/null \
+    | grep -qx "$1"
+}
+
+_mutagen_flush() {
+  command mutagen sync flush "$1" >/dev/null 2>&1 \
+    || print -u2 -- "docker: warning: mutagen sync '$1' did not flush cleanly (run: mutagen sync list)"
+}
+
+_mutagen_ensure() {
+  local name=$1 alpha=$2 beta=$3 ignore_root=$4
+  _mutagen_session_exists "$name" && return 0
+  _mutagen_build_ignore "$ignore_root"
+  command mutagen sync create \
+    --name="$name" \
+    --sync-mode=two-way-resolved \
+    --symlink-mode=posix-raw \
+    "${_MUTAGEN_IGNORE[@]}" \
+    "$alpha" "$beta" >/dev/null || return 1
+  _mutagen_flush "$name"
+}
+
+_mutagen_session_count() {
+  command mutagen sync list --template '{{len .}}' 2>/dev/null || print -r -- 0
+}
+
+_mutagen_stop_daemon_if_idle() {
+  [[ "$(_mutagen_session_count)" == 0 ]] || return 0
+  command mutagen daemon stop >/dev/null 2>&1
+}
+
+# Idempotent: sync session + tunnel are (re)established only if missing.
 # Safe to call repeatedly / concurrently for the same project (lock-guarded).
 # Does NOT touch tmux - only `up` cares about the tmux session.
 _ensure_session() {
@@ -145,25 +162,21 @@ _ensure_session() {
   shift 3
   local -a compose_files=("$@")
   local lockdir="$state/.lock"
-  _lock_acquire "$lockdir"
+
+  if ! _lock_acquire "$lockdir"; then
+    return 1
+  fi
 
   local remote_dir
-  remote_dir=$(_docker_remote_sync_to "$local_dir" quiet)
+  remote_dir=$(_remote_sync_path "$local_dir")
   if [[ -z "$remote_dir" ]]; then
     _lock_release "$lockdir"
     return 1
   fi
 
-  local wpid=$(_read_pid "$state/watcher.pid")
-  if ! _pid_alive "$wpid"; then
-    wpid=$(_docker_remote_watch_start "$local_dir")
-    print -r -- "$wpid" > "$state/watcher.pid"
-  fi
-
-  local ppid=$(_read_pid "$state/puller.pid")
-  if ! _pid_alive "$ppid"; then
-    ppid=$(_docker_remote_pull_start "${local_dir}:::${remote_dir}")
-    print -r -- "$ppid" > "$state/puller.pid"
+  if ! _mutagen_ensure "$(_mutagen_name "$slug")" "$local_dir" "${_DOCKER_REMOTE_HOST}:${remote_dir}" "$local_dir"; then
+    _lock_release "$lockdir"
+    return 1
   fi
 
   local tpid=$(_read_pid "$state/tunnel.pid")
@@ -188,11 +201,11 @@ _ensure_session() {
 }
 
 _teardown_session() {
-  local state=$1 session=$2
+  local state=$1 session=$2 slug=$3
   ssh "$_DOCKER_REMOTE_HOST" "tmux kill-session -t '$session' 2>/dev/null"
-  _docker_remote_watch_stop "$(_read_pid "$state/watcher.pid")"
-  _docker_remote_watch_stop "$(_read_pid "$state/puller.pid")"
-  _docker_remote_watch_stop "$(_read_pid "$state/tunnel.pid")"
+  _kill_pid "$(_read_pid "$state/tunnel.pid")"
+  command mutagen sync terminate "$(_mutagen_name "$slug")" >/dev/null 2>&1
+  _mutagen_stop_daemon_if_idle
   rm -rf "$state"
 }
 
@@ -200,8 +213,8 @@ _teardown_session() {
 # to that session (survives ssh disconnects), not to this invocation.
 # -d only controls whether *this local wrapper call* attaches or returns.
 _compose_up() {
-  local remote_dir=$1 session=$2
-  shift 2
+  local remote_dir=$1 session=$2 slug=$3
+  shift 3
   local -a up_args=("$@")
   local detach=0 a
   local -a fg_args
@@ -212,6 +225,8 @@ _compose_up() {
       fg_args+=("$a")
     fi
   done
+
+  _mutagen_flush "$(_mutagen_name "$slug")"
 
   local exists
   exists=$(ssh "$_DOCKER_REMOTE_HOST" "tmux has-session -t '$session' 2>/dev/null && print -r -- yes")
@@ -234,16 +249,16 @@ _compose_up() {
   return $?
 }
 
-# `down`: explicit teardown - stop compose, kill the tmux session, and stop
-# the local watcher/puller/tunnel so nothing is left running or polling.
+# `down`: stop compose, flush a final sync so artifacts land locally, then tear
+# down the tmux session, the tunnel and (if idle) the mutagen daemon.
 _compose_down() {
-  local local_dir=$1 remote_dir=$2 session=$3 state=$4
-  shift 4
+  local local_dir=$1 remote_dir=$2 session=$3 state=$4 slug=$5
+  shift 5
   print -u2 -- "docker: stopping containers on ${_DOCKER_REMOTE_HOST}"
   ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose down $*"
   local rc=$?
-  _docker_remote_sync_from "$local_dir" "$remote_dir" quiet
-  _teardown_session "$state" "$session"
+  _mutagen_flush "$(_mutagen_name "$slug")"
+  _teardown_session "$state" "$session" "$slug"
   return $rc
 }
 
@@ -268,7 +283,7 @@ _docker_remote_compose() {
 
   local remote_dir
   if [[ "$sub" == "down" ]]; then
-    remote_dir=$(_docker_remote_sync_to "$local_dir" quiet)
+    remote_dir=$(_remote_sync_path "$local_dir")
   else
     remote_dir=$(_ensure_session "$local_dir" "$slug" "$state" "${compose_files[@]}")
   fi
@@ -280,16 +295,17 @@ _docker_remote_compose() {
   shift
   case "$sub" in
     up)
-      _compose_up "$remote_dir" "$session" "$@"
+      _compose_up "$remote_dir" "$session" "$slug" "$@"
       ;;
     down)
-      _compose_down "$local_dir" "$remote_dir" "$session" "$state" "$@"
+      _compose_down "$local_dir" "$remote_dir" "$session" "$state" "$slug" "$@"
       ;;
     *)
+      _mutagen_flush "$(_mutagen_name "$slug")"
       print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
       ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose $sub $*"
       local rc=$?
-      _docker_remote_sync_from "$local_dir" "$remote_dir" quiet
+      _mutagen_flush "$(_mutagen_name "$slug")"
       return $rc
       ;;
   esac
@@ -297,8 +313,7 @@ _docker_remote_compose() {
 
 _docker_remote_run() {
   local -a args=("$@")
-  local -a local_paths
-  local -a remote_paths
+  local -a mnames
   local -a port_args
   local i=1
 
@@ -310,12 +325,14 @@ _docker_remote_run() {
         local src="${spec%%:*}"
         if [[ "$src" == /* || "$src" == .* || "$src" == "~"* ]]; then
           local abs_src="${src:A}"
-          local remote_path
-          remote_path=$(_docker_remote_sync_to "$abs_src")
-          if [[ -n "$remote_path" ]]; then
-            args[i]="${remote_path}${spec#$src}"
-            local_paths+=("$abs_src")
-            remote_paths+=("$remote_path")
+          local rp
+          rp=$(_remote_sync_path "$abs_src")
+          if [[ -n "$rp" ]]; then
+            local mn=$(_mutagen_name "run-$(_project_slug "$abs_src")")
+            if _mutagen_ensure "$mn" "$abs_src" "${_DOCKER_REMOTE_HOST}:${rp}" "$abs_src"; then
+              args[i]="${rp}${spec#$src}"
+              mnames+=("$mn")
+            fi
           fi
         fi
         ;;
@@ -323,15 +340,17 @@ _docker_remote_run() {
         (( i++ ))
         if [[ "${args[i]}" == *type=bind* ]]; then
           local src
-          src=$(echo "${args[i]}" | sed -n 's/.*source=\([^,]*\).*/\1/p')
+          src=$(print -r -- "${args[i]}" | sed -n 's/.*source=\([^,]*\).*/\1/p')
           if [[ -n "$src" ]]; then
             local abs_src="${src:A}"
-            local remote_path
-            remote_path=$(_docker_remote_sync_to "$abs_src")
-            if [[ -n "$remote_path" ]]; then
-              args[i]="${args[i]/source=$src/source=$remote_path}"
-              local_paths+=("$abs_src")
-              remote_paths+=("$remote_path")
+            local rp
+            rp=$(_remote_sync_path "$abs_src")
+            if [[ -n "$rp" ]]; then
+              local mn=$(_mutagen_name "run-$(_project_slug "$abs_src")")
+              if _mutagen_ensure "$mn" "$abs_src" "${_DOCKER_REMOTE_HOST}:${rp}" "$abs_src"; then
+                args[i]="${args[i]/source=$src/source=$rp}"
+                mnames+=("$mn")
+              fi
             fi
           fi
         fi
@@ -345,28 +364,25 @@ _docker_remote_run() {
     (( i++ ))
   done
 
-  local watcher puller
-  if (( ${#local_paths} > 0 )); then
-    watcher=$(_docker_remote_watch_start "${local_paths[@]}")
-    local -a pairs
-    for (( i = 1; i <= ${#local_paths}; i++ )); do
-      pairs+=("${local_paths[i]}:::${remote_paths[i]}")
+  local _run_cleanup_done=0
+  _run_cleanup() {
+    (( _run_cleanup_done )) && return
+    _run_cleanup_done=1
+    local mn
+    for mn in "${mnames[@]}"; do
+      _mutagen_flush "$mn"
+      command mutagen sync terminate "$mn" >/dev/null 2>&1
     done
-    puller=$(_docker_remote_pull_start "${pairs[@]}")
-    trap '_docker_remote_watch_stop "$watcher"; _docker_remote_watch_stop "$puller"' EXIT INT TERM
-  fi
+    _mutagen_stop_daemon_if_idle
+  }
+  (( ${#mnames} > 0 )) && trap '_run_cleanup' EXIT INT TERM
 
   print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
   ssh -t "${port_args[@]}" "$_DOCKER_REMOTE_HOST" "docker run ${args[*]}"
   local exit_code=$?
 
-  _docker_remote_watch_stop "$watcher"
-  _docker_remote_watch_stop "$puller"
+  _run_cleanup
   trap - EXIT INT TERM
-  for (( i = 1; i <= ${#local_paths}; i++ )); do
-    _docker_remote_sync_from "${local_paths[i]}" "${remote_paths[i]}"
-  done
-
   return $exit_code
 }
 

@@ -54,6 +54,9 @@ in
     # macOS には最初から入っているが、Linux(特に最小構成のサーバ・コンテナ)には
     # 無いことが多い。apt に頼らず nix 側で用意する。
     zsh
+  ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # bin/docker のリモート同期エンジン。remote には agent が自動配布されるので mac のみ
+    mutagen
   ];
 
   programs.home-manager.enable = true;
