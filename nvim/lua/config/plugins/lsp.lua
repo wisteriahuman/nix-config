@@ -27,6 +27,10 @@ return {
           "jsonls",
           "astro",
           "rust_analyzer",
+          "dockerls",
+          "docker_compose_language_service",
+          "mermaid_ls",
+          "sqls",
         },
       })
     end,
@@ -127,6 +131,12 @@ return {
           vim.keymap.set("n", "<leader>ws", vim.lsp.buf.workspace_symbol, opts)
 
           local client = vim.lsp.get_client_by_id(args.data.client_id)
+
+          if client and client.name == "sqls" then
+            client.server_capabilities.documentFormattingProvider = false
+            client.server_capabilities.documentRangeFormattingProvider = false
+          end
+
           if client and client:supports_method("textDocument/inlayHint") then
             vim.lsp.inlay_hint.enable(true, { bufnr = args.buf })
           end
@@ -146,6 +156,10 @@ return {
       vim.lsp.enable("ruby_lsp")
       vim.lsp.enable("gleam")
       vim.lsp.enable("tsp_server")
+      vim.lsp.enable("dockerls")
+      vim.lsp.enable("docker_compose_language_service")
+      vim.lsp.enable("mermaid_ls")
+      vim.lsp.enable("sqls")
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "swift",

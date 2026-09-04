@@ -25,6 +25,53 @@ if ! _DOCKER_REMOTE_HOST=$(_docker_remote_target); then
   exit $?
 fi
 
+# ---- project identity: works for any directory, git or not ----
+_project_slug() {
+  local abs="${1:A}"
+  local base="${abs:t}"
+  local hash
+  hash=$(print -r -- "$abs" | shasum -a 256 | cut -c1-10)
+  print -r -- "${base}-${hash}"
+}
+
+_state_dir() {
+  local slug=$1
+  local d="$HOME/.cache/docker-remote-wrapper/$slug"
+  mkdir -p "$d"
+  print -r -- "$d"
+}
+
+_read_pid() {
+  [[ -f "$1" ]] && cat "$1"
+}
+
+_pid_alive() {
+  [[ -n "$1" ]] && kill -0 "$1" 2>/dev/null
+}
+
+# mkdir-based mutex: portable (no flock(1) on macOS)
+_lock_acquire() {
+  local lockdir=$1
+  local tries=0
+  while ! mkdir "$lockdir" 2>/dev/null; do
+    (( tries++ >= 100 )) && return 1
+    sleep 0.05
+  done
+  return 0
+}
+
+_lock_release() {
+  rmdir "$1" 2>/dev/null
+}
+
+_rsync_exclude_args() {
+  local local_path=$1
+  local -a ex=(--exclude=.git --exclude=.env '--exclude=.env.*')
+  local ignorefile="$local_path/.dockerremoteignore"
+  [[ -f "$ignorefile" ]] && ex+=(--exclude-from="$ignorefile")
+  print -r -- "${ex[@]}"
+}
+
 _docker_remote_sync_to() {
   local local_path=$1
   local quiet=$2
@@ -32,11 +79,12 @@ _docker_remote_sync_to() {
   local remote_path
   remote_path=$(ssh "$_DOCKER_REMOTE_HOST" "d=\"\$HOME/.cache/docker-remote-sync/$rel_path\"; mkdir -p \"\$d\" && print -r -- \"\$d\"")
   [[ -z "$remote_path" ]] && return 1
+  local -a excludes=(${(z)$(_rsync_exclude_args "$local_path")})
   if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --checksum --update --delete --exclude=.git "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" >/dev/null
+    rsync -az -q --checksum --update --delete "${excludes[@]}" "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" >/dev/null
   else
     print -u2 -- "docker: syncing ${local_path} -> ${_DOCKER_REMOTE_HOST}"
-    rsync -az --checksum --update --info=progress2 --delete --exclude=.git "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" 1>&2
+    rsync -az --checksum --update --info=progress2 --delete "${excludes[@]}" "${local_path}/" "${_DOCKER_REMOTE_HOST}:${remote_path}/" 1>&2
   fi
   print -r -- "$remote_path"
 }
@@ -45,11 +93,12 @@ _docker_remote_sync_from() {
   local local_path=$1
   local remote_path=$2
   local quiet=$3
+  local -a excludes=(${(z)$(_rsync_exclude_args "$local_path")})
   if [[ "$quiet" == "quiet" ]]; then
-    rsync -az -q --checksum --update "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" >/dev/null 2>&1
+    rsync -az -q --checksum --update "${excludes[@]}" "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" >/dev/null 2>&1
   else
     print -u2 -- "docker: syncing results back from ${_DOCKER_REMOTE_HOST}"
-    rsync -az --checksum --update --info=progress2 "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" 1>&2
+    rsync -az --checksum --update --info=progress2 "${excludes[@]}" "${_DOCKER_REMOTE_HOST}:${remote_path}/" "${local_path}/" 1>&2
   fi
 }
 
@@ -78,20 +127,132 @@ _docker_remote_pull_start() {
   print -r -- $!
 }
 
+# these background jobs don't get their own process group (no job control in a
+# script), so `kill -- -$pid` doesn't reach children - kill direct children
+# (fswatch / sleep) explicitly, then the wrapper subshell itself
 _docker_remote_watch_stop() {
   [[ -z "$1" ]] && return
+  pkill -P "$1" 2>/dev/null
   kill "$1" 2>/dev/null
   wait "$1" 2>/dev/null
 }
 
-_docker_remote_compose() {
-  local local_dir=$PWD
+# Idempotent: sync + (re)start watcher/puller/tunnel only if not already alive.
+# Safe to call repeatedly / concurrently for the same project (lock-guarded).
+# Does NOT touch tmux - only `up` cares about the tmux session.
+_ensure_session() {
+  local local_dir=$1 slug=$2 state=$3
+  shift 3
+  local -a compose_files=("$@")
+  local lockdir="$state/.lock"
+  _lock_acquire "$lockdir"
+
   local remote_dir
-  remote_dir=$(_docker_remote_sync_to "$local_dir")
+  remote_dir=$(_docker_remote_sync_to "$local_dir" quiet)
   if [[ -z "$remote_dir" ]]; then
-    print -u2 -- "docker: failed to sync $local_dir to ${_DOCKER_REMOTE_HOST}"
+    _lock_release "$lockdir"
     return 1
   fi
+
+  local wpid=$(_read_pid "$state/watcher.pid")
+  if ! _pid_alive "$wpid"; then
+    wpid=$(_docker_remote_watch_start "$local_dir")
+    print -r -- "$wpid" > "$state/watcher.pid"
+  fi
+
+  local ppid=$(_read_pid "$state/puller.pid")
+  if ! _pid_alive "$ppid"; then
+    ppid=$(_docker_remote_pull_start "${local_dir}:::${remote_dir}")
+    print -r -- "$ppid" > "$state/puller.pid"
+  fi
+
+  local tpid=$(_read_pid "$state/tunnel.pid")
+  if ! _pid_alive "$tpid"; then
+    local ports
+    ports=$(ssh "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
+      | jq -r '[.services[].ports[]?.published] | unique | .[]' 2>/dev/null)
+    if [[ -n "$ports" ]]; then
+      local -a port_args
+      local p
+      for p in ${(f)ports}; do
+        port_args+=(-L "${p}:localhost:${p}")
+      done
+      ssh -N "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
+      tpid=$!
+      print -r -- "$tpid" > "$state/tunnel.pid"
+    fi
+  fi
+
+  _lock_release "$lockdir"
+  print -r -- "$remote_dir"
+}
+
+_teardown_session() {
+  local state=$1 session=$2
+  ssh "$_DOCKER_REMOTE_HOST" "tmux kill-session -t '$session' 2>/dev/null"
+  _docker_remote_watch_stop "$(_read_pid "$state/watcher.pid")"
+  _docker_remote_watch_stop "$(_read_pid "$state/puller.pid")"
+  _docker_remote_watch_stop "$(_read_pid "$state/tunnel.pid")"
+  rm -rf "$state"
+}
+
+# `up`: runs inside a remote tmux session so the container lifecycle is tied
+# to that session (survives ssh disconnects), not to this invocation.
+# -d only controls whether *this local wrapper call* attaches or returns.
+_compose_up() {
+  local remote_dir=$1 session=$2
+  shift 2
+  local -a up_args=("$@")
+  local detach=0 a
+  local -a fg_args
+  for a in "${up_args[@]}"; do
+    if [[ "$a" == "-d" || "$a" == "--detach" ]]; then
+      detach=1
+    else
+      fg_args+=("$a")
+    fi
+  done
+
+  local exists
+  exists=$(ssh "$_DOCKER_REMOTE_HOST" "tmux has-session -t '$session' 2>/dev/null && print -r -- yes")
+  if [[ "$exists" != "yes" ]]; then
+    local up_cmd="docker compose up ${(@q)fg_args}"
+    print -u2 -- "docker: starting 'docker compose up' in tmux session '$session' on ${_DOCKER_REMOTE_HOST}"
+    ssh "$_DOCKER_REMOTE_HOST" "tmux new-session -d -s '$session' -c '$remote_dir' '$up_cmd'"
+  else
+    print -u2 -- "docker: '$session' already running on ${_DOCKER_REMOTE_HOST}, reusing it"
+  fi
+
+  if (( detach )); then
+    print -u2 -- "docker: containers starting in background on ${_DOCKER_REMOTE_HOST}."
+    print -u2 -- "docker: reattach with 'docker compose up' (no -d), or: ssh ${_DOCKER_REMOTE_HOST} tmux attach -t $session"
+    return 0
+  fi
+
+  print -u2 -- "docker: attaching (Ctrl-b d to detach and keep running, Ctrl-C to stop compose)"
+  ssh -t "$_DOCKER_REMOTE_HOST" "tmux attach -t '$session'"
+  return $?
+}
+
+# `down`: explicit teardown - stop compose, kill the tmux session, and stop
+# the local watcher/puller/tunnel so nothing is left running or polling.
+_compose_down() {
+  local local_dir=$1 remote_dir=$2 session=$3 state=$4
+  shift 4
+  print -u2 -- "docker: stopping containers on ${_DOCKER_REMOTE_HOST}"
+  ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose down $*"
+  local rc=$?
+  _docker_remote_sync_from "$local_dir" "$remote_dir" quiet
+  _teardown_session "$state" "$session"
+  return $rc
+}
+
+_docker_remote_compose() {
+  local local_dir=$PWD
+  local slug=$(_project_slug "$local_dir")
+  local state=$(_state_dir "$slug")
+  local session="dr-${slug}"
+  local sub=$1
 
   local -a compose_files
   local i=1
@@ -105,31 +266,33 @@ _docker_remote_compose() {
     (( i++ ))
   done
 
-  local -a port_args
-  local ports
-  ports=$(ssh "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
-    | jq -r '[.services[].ports[]?.published] | unique | .[]' 2>/dev/null)
-  local p
-  for p in ${(f)ports}; do
-    port_args+=(-L "${p}:localhost:${p}")
-  done
+  local remote_dir
+  if [[ "$sub" == "down" ]]; then
+    remote_dir=$(_docker_remote_sync_to "$local_dir" quiet)
+  else
+    remote_dir=$(_ensure_session "$local_dir" "$slug" "$state" "${compose_files[@]}")
+  fi
+  if [[ -z "$remote_dir" ]]; then
+    print -u2 -- "docker: failed to sync $local_dir to ${_DOCKER_REMOTE_HOST}"
+    return 1
+  fi
 
-  local watcher
-  watcher=$(_docker_remote_watch_start "$local_dir")
-  local puller
-  puller=$(_docker_remote_pull_start "${local_dir}:::${remote_dir}")
-  trap '_docker_remote_watch_stop "$watcher"; _docker_remote_watch_stop "$puller"' EXIT INT TERM
-
-  print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
-  ssh -t "${port_args[@]}" "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose $*"
-  local exit_code=$?
-
-  _docker_remote_watch_stop "$watcher"
-  _docker_remote_watch_stop "$puller"
-  trap - EXIT INT TERM
-  _docker_remote_sync_from "$local_dir" "$remote_dir"
-
-  return $exit_code
+  shift
+  case "$sub" in
+    up)
+      _compose_up "$remote_dir" "$session" "$@"
+      ;;
+    down)
+      _compose_down "$local_dir" "$remote_dir" "$session" "$state" "$@"
+      ;;
+    *)
+      print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
+      ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose $sub $*"
+      local rc=$?
+      _docker_remote_sync_from "$local_dir" "$remote_dir" quiet
+      return $rc
+      ;;
+  esac
 }
 
 _docker_remote_run() {

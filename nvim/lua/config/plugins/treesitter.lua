@@ -25,6 +25,8 @@ return {
         "markdown_inline",
         "gleam",
         "typespec",
+        "mermaid",
+        "sql",
       }
 
       local installed = require("nvim-treesitter.config").get_installed("parsers")
