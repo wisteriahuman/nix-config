@@ -1,0 +1,10 @@
+# Global gitignore ($XDG_CONFIG_HOME/git/ignore)
+# どのリポジトリでも無視するもの。core.excludesFile 未設定でも git が既定で読む。
+
+# sqls (SQL language server) のプロジェクトローカル接続設定。
+# DSN・資格情報を含むため VCS には入れない。共有が必要なら .sqls.yml.example を使う。
+.sqls.yml
+.sqls/
+
+# エディタ / OS のゴミ
+.DS_Store

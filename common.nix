@@ -68,6 +68,8 @@ in
   };
 
   xdg.configFile = {
+    "git/ignore".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/git/ignore";
     "sheldon/plugins.toml".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/sheldon/plugins.toml";
     "zsh/.zshrc".source =

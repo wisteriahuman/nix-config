@@ -115,6 +115,23 @@ return {
         },
       })
 
+      -- sqls はプロジェクトルートの設定ファイルを自動発見しない
+      -- (-config / workspace settings / ~/.config/sqls/config.yml のみ)。
+      -- 編集対象の root に .sqls.yml があれば -config で渡す。
+      -- 接続情報(DSN・資格情報)はその .sqls.yml に置き、ここには書かない。
+      -- .sqls.yml は VCS に入れない(グローバル gitignore 済み。共有は .sqls.yml.example)。
+      vim.lsp.config("sqls", {
+        root_markers = { ".sqls.yml", ".git" },
+        cmd = function(dispatchers, config)
+          local cmd = { "sqls" }
+          local root = config and config.root_dir
+          if root and vim.uv.fs_stat(root .. "/.sqls.yml") then
+            vim.list_extend(cmd, { "-config", root .. "/.sqls.yml" })
+          end
+          return vim.lsp.rpc.start(cmd, dispatchers)
+        end,
+      })
+
       vim.api.nvim_create_autocmd("LspAttach", {
         callback = function(args)
           local opts = { buffer = args.buf, silent = true }
