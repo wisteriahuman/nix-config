@@ -140,6 +140,8 @@ _mutagen_ensure() {
     --name="$name" \
     --sync-mode=two-way-resolved \
     --symlink-mode=posix-raw \
+    --default-directory-mode=0755 \
+    --default-file-mode=0644 \
     "${_MUTAGEN_IGNORE[@]}" \
     "$alpha" "$beta" >/dev/null || return 1
   _mutagen_flush "$name"
