@@ -1,0 +1,29 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 2
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.go]
+indent_style = tab
+indent_size = 4
+
+[{Makefile,makefile,GNUmakefile,*.mk,*.mak}]
+indent_style = tab
+
+[{go.mod,go.sum}]
+indent_style = tab
+
+[*.{c,cpp}]
+indent_style = space
+indent_size = 4
+
+[*.py]
+indent_size = 4
+
+[*.swift]
+indent_style = space
+indent_size = 4
