@@ -6,5 +6,8 @@
 .sqls.yml
 .sqls/
 
+# 個人のリモートDockerラッパー用同期設定。
+.dockerremoteignore
+
 # エディタ / OS のゴミ
 .DS_Store

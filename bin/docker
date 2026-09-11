@@ -109,10 +109,11 @@ _remote_sync_path() {
 typeset -ga _MUTAGEN_IGNORE
 
 # .dockerremoteignore entries are passed through as mutagen ignore patterns
-# (gitignore-like syntax, not rsync's).
+# (gitignore-like syntax, not rsync's). Environment files are project files too:
+# sync them by default so remote bind mounts behave like local bind mounts.
 _mutagen_build_ignore() {
   local local_path=$1
-  _MUTAGEN_IGNORE=(--ignore-vcs --ignore '.env' --ignore '.env.*')
+  _MUTAGEN_IGNORE=(--ignore-vcs)
   local ignorefile="$local_path/.dockerremoteignore"
   [[ -f "$ignorefile" ]] || return 0
   local line
