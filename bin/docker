@@ -30,6 +30,26 @@ if ! command -v mutagen >/dev/null 2>&1; then
   exit 127
 fi
 
+# ---- compose file detection: don't sync/tunnel for directories that aren't
+# actually a compose project (e.g. a subdirectory of one). Mirrors how plain
+# `docker compose` only looks at $PWD, not parent directories. ----
+_has_compose_project() {
+  local -a args=("$@")
+  local i=1
+  while (( i <= $#args )); do
+    case "${args[i]}" in
+      -f|--file|--file=*) return 0 ;;
+    esac
+    (( i++ ))
+  done
+  local f
+  for f in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
+    [[ -f "$f" ]] && return 0
+  done
+  [[ -n "$COMPOSE_FILE" ]] && return 0
+  return 1
+}
+
 # ---- project identity: works for any directory, git or not ----
 _project_slug() {
   local abs="${1:A}"
@@ -46,7 +66,7 @@ _state_dir() {
   print -r -- "$d"
 }
 
-_read_pid() {
+_read_file() {
   [[ -f "$1" ]] && cat "$1"
 }
 
@@ -109,11 +129,12 @@ _remote_sync_path() {
 typeset -ga _MUTAGEN_IGNORE
 
 # .dockerremoteignore entries are passed through as mutagen ignore patterns
-# (gitignore-like syntax, not rsync's). Environment files are project files too:
-# sync them by default so remote bind mounts behave like local bind mounts.
+# (gitignore-like syntax, not rsync's). .git and env files are project files
+# too: sync them by default so remote bind mounts behave like local bind
+# mounts (a container running `git`/`lefthook` needs .git to be there).
 _mutagen_build_ignore() {
   local local_path=$1
-  _MUTAGEN_IGNORE=(--ignore-vcs)
+  _MUTAGEN_IGNORE=()
   local ignorefile="$local_path/.dockerremoteignore"
   [[ -f "$ignorefile" ]] || return 0
   local line
@@ -157,6 +178,25 @@ _mutagen_stop_daemon_if_idle() {
   command mutagen daemon stop >/dev/null 2>&1
 }
 
+# Reclaim state dirs left behind by a project whose tunnel died and whose
+# mutagen session is gone too (host reboot, manual cleanup, killed tunnel).
+# Skips anything mid-operation (holding the lock) or still alive.
+_gc_stale_state_dirs() {
+  local base="$HOME/.cache/docker-remote-wrapper"
+  [[ -d "$base" ]] || return 0
+  local active_sessions
+  active_sessions=$(command mutagen sync list --template '{{range .}}{{.Name}}{{"\n"}}{{end}}' 2>/dev/null)
+  local d slug
+  for d in "$base"/*/; do
+    [[ -d "$d" ]] || continue
+    [[ -d "${d}.lock" ]] && continue
+    _pid_alive "$(_read_file "${d}tunnel.pid")" && continue
+    slug="${${d%/}:t}"
+    print -r -- "$active_sessions" | grep -qx "$(_mutagen_name "$slug")" && continue
+    rm -rf "$d"
+  done
+}
+
 # Idempotent: sync session + tunnel are (re)established only if missing.
 # Safe to call repeatedly / concurrently for the same project (lock-guarded).
 # Does NOT touch tmux - only `up` cares about the tmux session.
@@ -182,21 +222,30 @@ _ensure_session() {
     return 1
   fi
 
-  local tpid=$(_read_pid "$state/tunnel.pid")
-  if ! _pid_alive "$tpid"; then
-    local ports
-    ports=$(ssh "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
-      | jq -r '[.services[].ports[]?.published] | unique | .[]' 2>/dev/null)
-    if [[ -n "$ports" ]]; then
-      local -a port_args
-      local p
-      for p in ${(f)ports}; do
-        port_args+=(-L "${p}:localhost:${p}")
-      done
-      ssh -N "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
-      tpid=$!
-      print -r -- "$tpid" > "$state/tunnel.pid"
-    fi
+  local tpid=$(_read_file "$state/tunnel.pid")
+  local ports
+  ports=$(ssh "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
+    | jq -r '[.services[].ports[]?.published] | unique | .[]' 2>/dev/null)
+  local ports_key="${(j:,:)${(f)ports}}"
+  local prev_ports_key=$(_read_file "$state/tunnel.ports")
+
+  # compose.yml grew/shrank its port list since the tunnel was opened: the
+  # running tunnel only forwards the old set, so replace it.
+  if _pid_alive "$tpid" && [[ "$ports_key" != "$prev_ports_key" ]]; then
+    _kill_pid "$tpid"
+    tpid=""
+  fi
+
+  if [[ -n "$ports" ]] && ! _pid_alive "$tpid"; then
+    local -a port_args
+    local p
+    for p in ${(f)ports}; do
+      port_args+=(-L "${p}:localhost:${p}")
+    done
+    ssh -N "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
+    tpid=$!
+    print -r -- "$tpid" > "$state/tunnel.pid"
+    print -r -- "$ports_key" > "$state/tunnel.ports"
   fi
 
   _lock_release "$lockdir"
@@ -205,8 +254,11 @@ _ensure_session() {
 
 _teardown_session() {
   local state=$1 session=$2 slug=$3
+  # best-effort: don't let a stuck lock holder block teardown forever, but
+  # avoid racing a concurrent `up` for the same project when we can.
+  _lock_acquire "$state/.lock"
   ssh "$_DOCKER_REMOTE_HOST" "tmux kill-session -t '$session' 2>/dev/null"
-  _kill_pid "$(_read_pid "$state/tunnel.pid")"
+  _kill_pid "$(_read_file "$state/tunnel.pid")"
   command mutagen sync terminate "$(_mutagen_name "$slug")" >/dev/null 2>&1
   _mutagen_stop_daemon_if_idle
   rm -rf "$state"
@@ -244,8 +296,25 @@ _compose_up() {
     return $rc
   fi
 
+  # Flags that change how containers get (re)built: reusing the existing
+  # tmux session would silently drop them, so restart it instead.
+  local -a recreate_flags=(--build --force-recreate --renew-anon-volumes --pull --always-recreate-deps -V --remove-orphans)
+  local wants_recreate=0 r
+  for a in "${up_args[@]}"; do
+    for r in "${recreate_flags[@]}"; do
+      [[ "$a" == "$r" || "$a" == ${r}=* ]] && wants_recreate=1
+    done
+  done
+
   local exists
   exists=$(ssh "$_DOCKER_REMOTE_HOST" "tmux has-session -t '$session' 2>/dev/null && print -r -- yes")
+  if [[ "$exists" == "yes" && $wants_recreate -eq 1 ]]; then
+    print -u2 -- "docker: '$session' is running but these flags need a restart; stopping it first"
+    ssh "$_DOCKER_REMOTE_HOST" "tmux send-keys -t '$session' C-c" 2>/dev/null
+    sleep 1
+    ssh "$_DOCKER_REMOTE_HOST" "tmux kill-session -t '$session' 2>/dev/null"
+    exists=no
+  fi
   if [[ "$exists" != "yes" ]]; then
     local up_cmd="docker compose up ${(@q)up_args}"
     print -u2 -- "docker: starting 'docker compose up' in tmux session '$session' on ${_DOCKER_REMOTE_HOST}"
@@ -287,16 +356,18 @@ _docker_remote_compose() {
         (( i++ ))
         compose_files+=(-f "${@[i]}")
         ;;
+      --file=*)
+        compose_files+=(-f "${${@[i]}#--file=}")
+        ;;
     esac
     (( i++ ))
   done
 
+  # Every subcommand (including `down`) needs the project actually synced
+  # first - `down` as the very first command run against a project used to
+  # skip this and fail against an empty remote directory.
   local remote_dir
-  if [[ "$sub" == "down" ]]; then
-    remote_dir=$(_remote_sync_path "$local_dir")
-  else
-    remote_dir=$(_ensure_session "$local_dir" "$slug" "$state" "${compose_files[@]}")
-  fi
+  remote_dir=$(_ensure_session "$local_dir" "$slug" "$state" "${compose_files[@]}")
   if [[ -z "$remote_dir" ]]; then
     print -u2 -- "docker: failed to sync $local_dir to ${_DOCKER_REMOTE_HOST}"
     return 1
@@ -367,8 +438,21 @@ _docker_remote_run() {
         ;;
       -p|--publish)
         (( i++ ))
-        local port="${args[i]%%:*}"
-        port_args+=(-L "${port}:localhost:${port}")
+        # HOSTPORT:CONTAINERPORT, IP:HOSTPORT:CONTAINERPORT, or bare
+        # CONTAINERPORT (docker picks a random host port for that last one -
+        # nothing we can tunnel to, so skip it instead of forwarding the
+        # wrong field).
+        local -a parts=("${(@s.:.)args[i]}")
+        local host_port=""
+        case ${#parts} in
+          2) host_port="${parts[1]}" ;;
+          3) host_port="${parts[2]}" ;;
+        esac
+        if [[ -n "$host_port" ]]; then
+          port_args+=(-L "${host_port}:localhost:${host_port}")
+        else
+          print -u2 -- "docker: warning: -p ${args[i]} has no fixed host port; not tunneling it"
+        fi
         ;;
     esac
     (( i++ ))
@@ -396,9 +480,15 @@ _docker_remote_run() {
   return $exit_code
 }
 
+_gc_stale_state_dirs
+
 case "$1" in
   compose)
-    _docker_remote_compose "${@:2}"
+    if _has_compose_project "${@:2}"; then
+      _docker_remote_compose "${@:2}"
+      exit $?
+    fi
+    _real_docker "$@"
     exit $?
     ;;
   run|create)
