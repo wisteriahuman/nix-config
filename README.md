@@ -71,6 +71,12 @@ Dockerには、手元のPCからSSH経由で別のマシンのDocker daemonを�
 
 `bin/docker`はこれに対応するラッパー。現在の`docker context`のエンドポイントが`ssh://`の場合にだけ動作し、その接続先へカレントディレクトリ（`docker run -v`の場合は指定したパス）を同期してから、ビルドと実行をリモート側で行い、終わったら結果を手元に同期して戻す。同期先は`docker context`の設定から決まるので、`docker context use`で切り替えれば別のリモートにそのまま向く。プロジェクト側のDockerfileやcompose.yamlの変更は不要。colima・Docker Desktop・OrbStackなどが作るローカルcontextは対象外で、素通しされる。
 
+`docker compose up -d` はリモートでも `-d` をそのまま渡し、Composeの起動処理が終了するまで待つ。起動時の出力と終了コードは手元に返る。サービスが running / healthy になるまで待つ場合は `docker compose up --wait --wait-timeout 120` を使う（healthcheckがないサービスはrunningまでの確認）。ログは `docker compose logs -f` で確認できる。
+
+`-d` / `--wait` のない `docker compose up` は、従来どおりtmux内で実行して再接続できる。以前の `up -d` で作られたtmuxセッションが残っていても、新しい `up -d` はComposeを再実行するため、`--build` などの指定も反映される。同期とポート転送は `docker compose down` まで維持する。
+
+`bin/docker` はHome Managerの `mkOutOfStoreSymlink` で配置している。リンク設定が適用済みの環境では、このファイルの編集は次回の実行から反映される。回帰テストは `python3 -m unittest discover -s tests -v` で実行でき、実際のSSH接続やDockerコンテナは使用しない。
+
 ## secretsについて
 
 このリポジトリは public。`~/.config/zsh/hidden/`配下や`~/.ssh/`など、秘密情報を含むファイルは意図的に含まれていない。

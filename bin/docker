@@ -211,39 +211,46 @@ _teardown_session() {
   rm -rf "$state"
 }
 
-# `up`: runs inside a remote tmux session so the container lifecycle is tied
-# to that session (survives ssh disconnects), not to this invocation.
-# -d only controls whether *this local wrapper call* attaches or returns.
+# Detached `up` runs synchronously over SSH: Compose starts the containers in
+# the background, and its output and exit code reach the caller. Foreground
+# `up` retains the tmux session for reconnecting after an SSH disconnect.
 _compose_up() {
   local remote_dir=$1 session=$2 slug=$3
   shift 3
   local -a up_args=("$@")
-  local detach=0 a
-  local -a fg_args
+  local detach=0 wait_for_services=0 a
   for a in "${up_args[@]}"; do
-    if [[ "$a" == "-d" || "$a" == "--detach" ]]; then
-      detach=1
-    else
-      fg_args+=("$a")
-    fi
+    case "$a" in
+      -d|--detach|-d=true|--detach=true) detach=1 ;;
+      -d=false|--detach=false) detach=0 ;;
+      --wait|--wait=true) wait_for_services=1 ;;
+      --wait=false) wait_for_services=0 ;;
+      --) break ;;
+    esac
   done
 
   _mutagen_flush "$(_mutagen_name "$slug")"
 
+  if (( detach || wait_for_services )); then
+    # Quote each argument for the remote shell, including paths with spaces.
+    local -a compose_cmd=(docker compose up "${up_args[@]}")
+    local -a quoted_cmd=("${(@qq)compose_cmd}")
+    local remote_cmd="cd ${(qq)remote_dir} && ${(j: :)quoted_cmd}"
+    print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
+    ssh -T "$_DOCKER_REMOTE_HOST" "$remote_cmd"
+    local rc=$?
+    _mutagen_flush "$(_mutagen_name "$slug")"
+    return $rc
+  fi
+
   local exists
   exists=$(ssh "$_DOCKER_REMOTE_HOST" "tmux has-session -t '$session' 2>/dev/null && print -r -- yes")
   if [[ "$exists" != "yes" ]]; then
-    local up_cmd="docker compose up ${(@q)fg_args}"
+    local up_cmd="docker compose up ${(@q)up_args}"
     print -u2 -- "docker: starting 'docker compose up' in tmux session '$session' on ${_DOCKER_REMOTE_HOST}"
-    ssh "$_DOCKER_REMOTE_HOST" "tmux new-session -d -s '$session' -c '$remote_dir' '$up_cmd'"
+    ssh "$_DOCKER_REMOTE_HOST" "tmux new-session -d -s '$session' -c '$remote_dir' '$up_cmd'" || return $?
   else
     print -u2 -- "docker: '$session' already running on ${_DOCKER_REMOTE_HOST}, reusing it"
-  fi
-
-  if (( detach )); then
-    print -u2 -- "docker: containers starting in background on ${_DOCKER_REMOTE_HOST}."
-    print -u2 -- "docker: reattach with 'docker compose up' (no -d), or: ssh ${_DOCKER_REMOTE_HOST} tmux attach -t $session"
-    return 0
   fi
 
   print -u2 -- "docker: attaching (Ctrl-b d to detach and keep running, Ctrl-C to stop compose)"
