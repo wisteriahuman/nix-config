@@ -200,6 +200,34 @@ _gc_stale_state_dirs() {
 # Idempotent: sync session + tunnel are (re)established only if missing.
 # Safe to call repeatedly / concurrently for the same project (lock-guarded).
 # Does NOT touch tmux - only `up` cares about the tmux session.
+# Output complete SSH -L specifications. A project can opt individual published
+# TCP ports into LAN/Tailscale access with .dockerremoteports (a JSON object).
+_compose_tunnel_specs() {
+  local bindings=$1
+  jq -r --argjson bindings "$bindings" '
+    def loopback: . == "localhost" or . == "::1" or startswith("127.");
+    def endpoint: if contains(":") then "[" + . + "]" else . end;
+    def address: type == "string" and test("^[0-9a-fA-F:.]+$");
+    if ($bindings | type) != "object" then error(".dockerremoteports must be a JSON object") else . end
+    | if all($bindings | to_entries[]; (.key | test("^[0-9]+$")) and (.value | address))
+      then . else error(".dockerremoteports requires port-to-IP mappings") end
+    | [.services[].ports[]? | select(.published != null and (.protocol // "tcp") == "tcp")]
+    | . as $ports
+    | if all($bindings | keys[]; . as $key | any($ports[]; (.published | tostring) == $key))
+      then . else error(".dockerremoteports contains a port not published as TCP by Compose") end
+    | map(
+        (.published | tostring) as $port
+        | if ($port | test("^[0-9]+$")) then . else error("SSH forwarding requires a single published port") end
+        | (.host_ip // "") as $host
+        | ($bindings[$port] // (if $host == "" then "127.0.0.1" else $host end)) as $bind
+        | if ($host | loopback) and ($bind | loopback | not)
+          then error("cannot widen a Compose loopback binding for port " + $port) else . end
+        | (if $host == "" or $host == "0.0.0.0" then "127.0.0.1"
+           elif $host == "::" then "::1" else $host end) as $target
+        | ($bind | endpoint) + ":" + $port + ":" + ($target | endpoint) + ":" + $port
+      ) | unique | .[]'
+}
+
 _ensure_session() {
   local local_dir=$1 slug=$2 state=$3
   shift 3
@@ -223,9 +251,23 @@ _ensure_session() {
   fi
 
   local tpid=$(_read_file "$state/tunnel.pid")
-  local ports
-  ports=$(ssh "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${compose_files[@]} config --format json" 2>/dev/null \
-    | jq -r '[.services[].ports[]?.published] | unique | .[]' 2>/dev/null)
+  local ports config_json bindings='{}'
+  if [[ -f "$local_dir/.dockerremoteports" ]]; then
+    bindings=$(cat "$local_dir/.dockerremoteports")
+  fi
+  local remote_command="cd ${(q)remote_dir} && docker compose"
+  local compose_arg
+  for compose_arg in "${compose_files[@]}"; do
+    remote_command+=" ${(q)compose_arg}"
+  done
+  if ! config_json=$(ssh "$_DOCKER_REMOTE_HOST" "$remote_command config --format json"); then
+    _lock_release "$lockdir"
+    return 1
+  fi
+  if ! ports=$(print -r -- "$config_json" | _compose_tunnel_specs "$bindings"); then
+    _lock_release "$lockdir"
+    return 1
+  fi
   local ports_key="${(j:,:)${(f)ports}}"
   local prev_ports_key=$(_read_file "$state/tunnel.ports")
 
@@ -240,9 +282,9 @@ _ensure_session() {
     local -a port_args
     local p
     for p in ${(f)ports}; do
-      port_args+=(-L "${p}:localhost:${p}")
+      port_args+=(-L "$p")
     done
-    ssh -N "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
+    ssh -N -o ExitOnForwardFailure=yes "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
     tpid=$!
     print -r -- "$tpid" > "$state/tunnel.pid"
     print -r -- "$ports_key" > "$state/tunnel.ports"
