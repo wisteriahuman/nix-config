@@ -32,6 +32,7 @@ in
     bat
     sheldon
     zoxide
+    direnv
     fd
     tree-sitter
     lazygit

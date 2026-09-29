@@ -114,8 +114,9 @@ _kill_pid() {
 # container-generated artifacts flow back; conflicts resolve in favour of the
 # Mac copy. The daemon is started on demand and stopped once no session is left.
 
+# Mutagen session names allow only ASCII letters, digits and '-'.
 _mutagen_name() {
-  local s="${1//[^a-zA-Z0-9_-]/-}"
+  local s="${1//[^a-zA-Z0-9-]/-}"
   print -r -- "dr-${s[1,58]}"
 }
 
@@ -187,11 +188,11 @@ _gc_stale_state_dirs() {
   local active_sessions
   active_sessions=$(command mutagen sync list --template '{{range .}}{{.Name}}{{"\n"}}{{end}}' 2>/dev/null)
   local d slug
-  for d in "$base"/*/; do
-    [[ -d "$d" ]] || continue
-    [[ -d "${d}.lock" ]] && continue
-    _pid_alive "$(_read_file "${d}tunnel.pid")" && continue
-    slug="${${d%/}:t}"
+  # (N/): directories only, and no NOMATCH error when base is empty.
+  for d in "$base"/*(N/); do
+    [[ -d "$d/.lock" ]] && continue
+    _pid_alive "$(_read_file "$d/tunnel.pid")" && continue
+    slug="${d:t}"
     print -r -- "$active_sessions" | grep -qx "$(_mutagen_name "$slug")" && continue
     rm -rf "$d"
   done

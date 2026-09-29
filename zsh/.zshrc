@@ -35,6 +35,7 @@ eval "$(zoxide init zsh)"
 alias grep='rg'
 
 eval "$(mise activate zsh)"
+eval "$(direnv hook zsh)"
 
 for f in ~/.config/zsh/hidden/*.zsh(N); do
     source "$f"
