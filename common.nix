@@ -35,6 +35,7 @@ in
     direnv
     fd
     tree-sitter
+    stylua
     lazygit
     unzip
     fastfetch
