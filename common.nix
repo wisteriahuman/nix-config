@@ -36,7 +36,6 @@ in
     fd
     tree-sitter
     stylua
-    lazygit
     unzip
     fastfetch
     chafa

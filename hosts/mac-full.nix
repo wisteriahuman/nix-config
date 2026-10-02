@@ -7,7 +7,7 @@
 
   home.stateVersion = "25.05";
 
-  home.packages = with pkgs; [ wget xcodegen ];
+  home.packages = with pkgs; [ wget xcodegen duckdb imagemagick ];
 
   home.file = {
     ".local/bin/tailscale".source =

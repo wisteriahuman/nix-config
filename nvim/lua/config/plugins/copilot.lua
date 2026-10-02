@@ -1,12 +1,33 @@
+-- 起動時は読み込まず、<leader>uc で初めてロードして ON にする。
+-- fresh: ロード直後（setup 済みで既に ON）なので、最初の1回は切り替えない。
+local state = { on = false, fresh = false }
+
 return {
   {
     "zbirenbaum/copilot.lua",
-    event = "InsertEnter",
     cmd = "Copilot",
+    keys = {
+      {
+        "<leader>uc",
+        function()
+          if state.fresh then
+            state.fresh = false
+          elseif state.on then
+            require("copilot.command").disable()
+            state.on = false
+          else
+            require("copilot.command").enable()
+            state.on = true
+          end
+          vim.notify("Copilot " .. (state.on and "ON" or "OFF"), vim.log.levels.INFO, { title = "Copilot" })
+        end,
+        desc = "Toggle Copilot",
+      },
+    },
     config = function()
       require("copilot").setup({
         suggestion = {
-          enabled = false,
+          enabled = true,
           auto_trigger = true,
           debounce = 100,
           keymap = {
@@ -26,6 +47,8 @@ return {
           ["*"] = true,
         },
       })
+      state.on = true
+      state.fresh = true
     end,
   },
 }

@@ -30,9 +30,6 @@ return {
       map("n", "<leader>no", function()
         neotest.output_panel.toggle()
       end, { desc = "Test Output" })
-      map("n", "<leader>nd", function()
-        neotest.run.run({ strategy = "dap" })
-      end, { desc = "Test Debug" })
     end,
     keys = {
       { "<leader>nr", desc = "Test Nearest" },

@@ -10,6 +10,9 @@ return {
       map("n", "<A-,>", "<cmd>BufferLineCyclePrev<CR>", { desc = "Previous Buffer" })
       map("n", "<A-.>", "<cmd>BufferLineCycleNext<CR>", { desc = "Next Buffer" })
       map("n", "<A-c>", "<cmd>BufferLinePickClose<CR>", { desc = "Close Buffer" })
+      for i = 1, 9 do
+        map("n", "<leader>" .. i, "<cmd>BufferLineGoToBuffer " .. i .. "<CR>", { desc = "Go to Buffer " .. i })
+      end
     end,
   },
 }
