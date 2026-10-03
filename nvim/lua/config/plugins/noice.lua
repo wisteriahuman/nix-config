@@ -32,6 +32,7 @@ return {
 
       -- K のホバー等だけ noice の整形を借りる(blink の補完ドキュメントには触らない)
       lsp = {
+        signature = { enabled = false }, -- blink.cmp の signature と二重に出るため
         override = {
           ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
           ["vim.lsp.util.stylize_markdown"] = true,

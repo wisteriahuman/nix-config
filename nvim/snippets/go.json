@@ -1,0 +1,74 @@
+{
+  "return wrapped error": {
+    "prefix": "errw",
+    "body": "return ${1:nil, }fmt.Errorf(\"${2:context}: %w\", err)",
+    "description": "return fmt.Errorf(\"...: %w\", err)"
+  },
+  "if err wrap": {
+    "prefix": "ifew",
+    "body": [
+      "if err != nil {",
+      "\treturn ${1:nil, }fmt.Errorf(\"${2:context}: %w\", err)",
+      "}",
+      "$0"
+    ],
+    "description": "if err != nil { return ..., fmt.Errorf(\"...: %w\", err) }"
+  },
+  "if err return nil": {
+    "prefix": "ifen",
+    "body": [
+      "if err != nil {",
+      "\treturn nil, err",
+      "}",
+      "$0"
+    ],
+    "description": "if err != nil { return nil, err }"
+  },
+  "if err inline": {
+    "prefix": "ifer",
+    "body": [
+      "if err := ${1:call()}; err != nil {",
+      "\t${2:return err}",
+      "}",
+      "$0"
+    ],
+    "description": "if err := ...; err != nil { ... }"
+  },
+  "if errors.Is": {
+    "prefix": "eis",
+    "body": [
+      "if errors.Is(err, ${1:target}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "if errors.Is(err, target) { ... }"
+  },
+  "subtest": {
+    "prefix": "trun",
+    "body": [
+      "t.Run(\"${1:name}\", func(t *testing.T) {",
+      "\t$0",
+      "})"
+    ],
+    "description": "t.Run(\"name\", func(t *testing.T) { ... })"
+  },
+  "test fatal on error": {
+    "prefix": "tfatal",
+    "body": [
+      "if err != nil {",
+      "\tt.Fatalf(\"${1:Func}() error = %v\", err)",
+      "}",
+      "$0"
+    ],
+    "description": "if err != nil { t.Fatalf(\"X() error = %v\", err) }"
+  },
+  "echo handler": {
+    "prefix": "echoh",
+    "body": [
+      "func (h *${1:Handler}) ${2:Name}(c echo.Context) error {",
+      "\t$0",
+      "}"
+    ],
+    "description": "func (h *Handler) Name(c echo.Context) error { ... }"
+  }
+}
