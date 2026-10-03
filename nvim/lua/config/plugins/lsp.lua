@@ -90,6 +90,11 @@ return {
         filetypes = { "sh", "bash", "zsh" },
       })
 
+      vim.lsp.config("mermaid_lsp", {
+        cmd = { "mermaid-lsp" },
+        filetypes = { "mermaid" },
+      })
+
       vim.lsp.config("yamlls", {
         settings = {
           redhat = { telemetry = { enabled = false } },
@@ -303,6 +308,7 @@ return {
       vim.lsp.enable("yamlls")
       vim.lsp.enable("taplo")
       vim.lsp.enable("marksman")
+      vim.lsp.enable("mermaid_lsp")
       vim.lsp.enable("nixd")
 
       vim.api.nvim_create_autocmd("FileType", {

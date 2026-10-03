@@ -7,9 +7,13 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    mermaid-lsp = {
+      url = "github:wisteriahuman/mermaid-lsp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
-  outputs = { self, nixpkgs, home-manager, ... }:
+  outputs = { self, nixpkgs, home-manager, ... }@inputs:
     let
       inherit (nixpkgs) lib;
 
@@ -29,6 +33,7 @@
       mkHome = system: module:
         home-manager.lib.homeManagerConfiguration {
           pkgs = nixpkgs.legacyPackages.${system};
+          extraSpecialArgs = { inherit inputs; };
           modules = [ module ];
         };
 

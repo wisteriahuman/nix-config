@@ -42,6 +42,9 @@ return {
 
       vim.keymap.set('n', 'gq', function()
         require('conform').format({ async = true })
+        if vim.bo.filetype == 'markdown' then
+          require('config.mermaid').format_blocks()
+        end
       end, { desc = '整形' })
     end,
   },

@@ -4,7 +4,10 @@ return {
     dependencies = {
       "nvim-treesitter/nvim-treesitter",
     },
-    opts = {},
+    opts = {
+      -- otter は拡張子表に無い言語を黙って飛ばす
+      extensions = { mermaid = "mmd" },
+    },
     config = function(_, opts)
       require("otter").setup(opts)
 

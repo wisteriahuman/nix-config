@@ -1,4 +1,4 @@
-{ pkgs, config, ... }:
+{ pkgs, config, inputs, ... }:
 
 {
   imports = [ ../common.nix ../dev-tools.nix ];
@@ -7,7 +7,9 @@
 
   home.stateVersion = "25.05";
 
-  home.packages = with pkgs; [ wget xcodegen duckdb imagemagick ];
+  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick ]) ++ [
+    inputs.mermaid-lsp.packages.${pkgs.stdenv.hostPlatform.system}.default
+  ];
 
   home.file = {
     ".local/bin/tailscale".source =

@@ -20,6 +20,26 @@
         "type": "github"
       }
     },
+    "mermaid-lsp": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1791062647,
+        "narHash": "sha256-cX1BNeC2QmArYyjn0FspFtdaHt+sUAoMjND6Hu/U2KU=",
+        "owner": "wisteriahuman",
+        "repo": "mermaid-lsp",
+        "rev": "fde46c50f5431464c9ea73c039a6b1de5019abe1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "wisteriahuman",
+        "repo": "mermaid-lsp",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1784497964,
@@ -39,6 +59,7 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
+        "mermaid-lsp": "mermaid-lsp",
         "nixpkgs": "nixpkgs"
       }
     }
