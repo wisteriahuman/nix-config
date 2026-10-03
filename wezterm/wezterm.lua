@@ -18,7 +18,7 @@ local THEMES = {
     tab_bg = "#292e42", tab_fg2 = "#c0caf5",
     tab_accent = "#9ece6a", tab_hover = "#73daca", tab_fg = "#1a1b26",
     tab_style = "tri",
-    padding = { left = 10, right = 10, top = 10, bottom = 10 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "BlinkingBlock", cursor_blink_rate = 500,
   },
   mocha = {
@@ -28,7 +28,7 @@ local THEMES = {
     tab_bg = "#313244", tab_fg2 = "#cdd6f4",
     tab_accent = "#a6e3a1", tab_hover = "#94e2d5", tab_fg = "#1e1e2e",
     tab_style = "round",
-    padding = { left = 18, right = 18, top = 16, bottom = 16 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "SteadyBlock", cursor_blink_rate = 500,
   },
   latte = {
@@ -38,7 +38,7 @@ local THEMES = {
     tab_bg = "#ccd0da", tab_fg2 = "#4c4f69",
     tab_accent = "#40a02b", tab_hover = "#179299", tab_fg = "#eff1f5",
     tab_style = "round",
-    padding = { left = 18, right = 18, top = 16, bottom = 16 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "SteadyBlock", cursor_blink_rate = 500,
   },
   rosepine = {
@@ -48,7 +48,7 @@ local THEMES = {
     tab_bg = "#26233a", tab_fg2 = "#e0def4",
     tab_accent = "#31748f", tab_hover = "#9ccfd8", tab_fg = "#191724",
     tab_style = "underline",
-    padding = { left = 24, right = 24, top = 20, bottom = 20 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "BlinkingBar", cursor_blink_rate = 900,
   },
   dawn = {
@@ -58,7 +58,7 @@ local THEMES = {
     tab_bg = "#f2e9e1", tab_fg2 = "#575279",
     tab_accent = "#286983", tab_hover = "#56949f", tab_fg = "#faf4ed",
     tab_style = "underline",
-    padding = { left = 24, right = 24, top = 20, bottom = 20 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "BlinkingBar", cursor_blink_rate = 900,
   },
   mochi = {
@@ -67,7 +67,7 @@ local THEMES = {
     tab_bg = "#2c2138", tab_fg2 = "#f5e8f7",
     tab_accent = "#d9a4ff", tab_hover = "#8fc4ff", tab_fg = "#221a2c",
     tab_style = "round",
-    padding = { left = 12, right = 12, top = 10, bottom = 10 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "BlinkingBlock", cursor_blink_rate = 500,
     colors = {
       foreground = "#f5e8f7",
@@ -87,7 +87,7 @@ local THEMES = {
     tab_bg = "#ffe9f3", tab_fg2 = "#4a2b45",
     tab_accent = "#832eb8", tab_hover = "#2a68c6", tab_fg = "#fff5fa",
     tab_style = "round",
-    padding = { left = 12, right = 12, top = 10, bottom = 10 },
+    padding = { left = 6, right = 6, top = 6, bottom = 6 },
     cursor_style = "BlinkingBlock", cursor_blink_rate = 500,
     colors = {
       foreground = "#4a2b45",
