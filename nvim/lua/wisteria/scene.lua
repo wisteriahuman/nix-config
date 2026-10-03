@@ -99,7 +99,9 @@ local function half_width(t, w)
   return w * (1 - (t - 0.18) / 0.82) ^ 0.8
 end
 
-local function raceme(canvas, r, x0, length, flower, fill)
+---@return { [1]: integer, [2]: integer, [3]: string }[] ドットの並び {x, y, 色}
+local function raceme(r, x0, length, flower, fill)
+  local px = {}
   local w = 2.0 + r:next() * 1.5
   local phase = r:next() * 6.28
   for y = 0, length - 1 do
@@ -110,10 +112,11 @@ local function raceme(canvas, r, x0, length, flower, fill)
       if math.abs(dx) <= hw + (r:next() - 0.5) * 0.6 and r:next() < fill then
         -- 付け根は開いた花で明るく、先はつぼみで濃い。左から光が当たる。
         local shade = 4 - math.floor(t * 3.2) + (dx < 0 and 1 or 0) + r:int(-1, 0)
-        canvas:set(cx + dx, 4 + y, flower[math.max(1, math.min(#flower, shade))])
+        px[#px + 1] = { cx + dx, 4 + y, flower[math.max(1, math.min(#flower, shade))] }
       end
     end
   end
+  return px
 end
 
 ---@class wisteria.Layout
@@ -121,11 +124,27 @@ end
 ---@field right integer 右端(セル)
 ---@field top integer 上端(セル)
 
----@param canvas wisteria.Canvas
+---@class wisteria.Raceme
+---@field x integer 付け根の位置
+---@field length integer
+---@field front boolean 手前の層か
+---@field px { [1]: integer, [2]: integer, [3]: string }[]
+
+---@class wisteria.Parts
+---@field racemes wisteria.Raceme[]
+---@field vine { [1]: integer, [2]: integer, [3]: string }[]
+---@field leaves { [1]: integer, [2]: integer, [3]: string }[]
+
+--- 藤を部品(房・つる・葉)ごとに作る。オープニングで部品ごとに動かすために分けてある。
+---@param w integer ドット単位の幅
+---@param h integer ドット単位の高さ
 ---@param layout wisteria.Layout
 ---@param period wisteria.Period
 ---@param seed integer
-function M.wisteria(canvas, layout, period, seed)
+---@return wisteria.Parts
+function M.build(w, h, layout, period, seed)
+  local canvas = { w = w, h = h }
+  local parts = { racemes = {}, vine = {}, leaves = {} }
   local r = rng.new(seed)
   local flower, leaf = tinted(FLOWER, period), tinted(LEAF, period)
   local vine = period.tint and color.mix(VINE, period.tint, period.amount) or VINE
@@ -139,8 +158,8 @@ function M.wisteria(canvas, layout, period, seed)
     back[i] = color.mix(c, period.bg, 0.5)
   end
   for _, layer in ipairs({
-    { palette = back, gap = { 4, 6 }, scale = 0.8, fill = 0.97 },
-    { palette = flower, gap = { 6, 10 }, scale = 1, fill = 0.9 },
+    { palette = back, gap = { 4, 6 }, scale = 0.8, fill = 0.97, front = false },
+    { palette = flower, gap = { 6, 10 }, scale = 1, fill = 0.9, front = true },
   }) do
     local x = r:int(1, 4)
     while x < canvas.w - 1 do
@@ -154,7 +173,12 @@ function M.wisteria(canvas, layout, period, seed)
       end
       local length = math.floor(limit * layer.scale * (0.55 + r:next() * 0.45))
       if length >= 5 then
-        raceme(canvas, r, x, length, layer.palette, layer.fill)
+        parts.racemes[#parts.racemes + 1] = {
+          x = x,
+          length = length,
+          front = layer.front,
+          px = raceme(r, x, length, layer.palette, layer.fill),
+        }
       end
       x = x + r:int(layer.gap[1], layer.gap[2])
     end
@@ -162,7 +186,7 @@ function M.wisteria(canvas, layout, period, seed)
 
   -- つる
   for vx = 0, canvas.w - 1 do
-    canvas:set(vx, 2 + math.floor(math.sin(vx / 9) * 1.2 + 0.5), vine)
+    parts.vine[#parts.vine + 1] = { vx, 2 + math.floor(math.sin(vx / 9) * 1.2 + 0.5), vine }
   end
 
   -- 葉
@@ -170,8 +194,25 @@ function M.wisteria(canvas, layout, period, seed)
     local n = r:int(1, 4)
     for ly = 0, n do
       if r:next() < 0.8 then
-        canvas:set(lx, ly, leaf[r:int(1, #leaf)])
+        parts.leaves[#parts.leaves + 1] = { lx, ly, leaf[r:int(1, #leaf)] }
       end
+    end
+  end
+  return parts
+end
+
+--- 部品を全部描く(房 → つる → 葉の順。付け根を葉で隠す)。
+---@param canvas wisteria.Canvas
+---@param parts wisteria.Parts
+function M.draw(canvas, parts)
+  for _, raceme_part in ipairs(parts.racemes) do
+    for _, p in ipairs(raceme_part.px) do
+      canvas:set(p[1], p[2], p[3])
+    end
+  end
+  for _, list in ipairs({ parts.vine, parts.leaves }) do
+    for _, p in ipairs(list) do
+      canvas:set(p[1], p[2], p[3])
     end
   end
 end

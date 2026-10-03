@@ -59,6 +59,44 @@ M.poses = {
     "WWWWWWWWW..",
     ".WW....WW..",
   },
+  -- 横向き(右向き)に歩く
+  walk1 = {
+    "...........",
+    "...........",
+    "...........",
+    ".......W.W.",
+    "S......WWWW",
+    "S......WWEW",
+    ".SWWWWWWWWP",
+    "..WWWWWWW..",
+    "..WW...WW..",
+    ".WW.....WW.",
+  },
+  walk2 = {
+    "...........",
+    "...........",
+    "...........",
+    ".......W.W.",
+    ".S.....WWWW",
+    ".S.....WWEW",
+    ".SWWWWWWWWP",
+    "..WWWWWWW..",
+    "...WW.WW...",
+    "...W...W...",
+  },
+  -- 飛び降りる途中
+  jump = {
+    "...........",
+    "...........",
+    "S......W.W.",
+    ".S.....WWWW",
+    "..S....WWEW",
+    "..WWWWWWWWP",
+    "..WWWWWWWW.",
+    ".WW.....WW.",
+    "WW.......WW",
+    "...........",
+  },
   sleep = {
     "...........",
     "...........",
@@ -93,11 +131,12 @@ M.height = 10
 ---@param x integer 左端(ドット)
 ---@param y integer 上端(ドット)
 ---@param period? wisteria.Period
-function M.draw(canvas, pose, x, y, period)
+---@param max_y? integer これより下のドットは描かない(ものの後ろから出てくるとき用)
+function M.draw(canvas, pose, x, y, period, max_y)
   for row, line in ipairs(M.poses[pose]) do
     for col = 1, #line do
       local c = PALETTE[line:sub(col, col)]
-      if c then
+      if c and (not max_y or y + row - 1 <= max_y) then
         if period and period.tint then
           c = color.mix(c, period.tint, period.amount * 0.6)
         end

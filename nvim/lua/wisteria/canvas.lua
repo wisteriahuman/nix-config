@@ -40,31 +40,31 @@ function M:clear()
   self.px = {}
 end
 
---- 行ごとの virt_text チャンク列を作る。blocked(row, col) が true のセルは描かない。
+--- 行ごとに、連続して描くセルの並びを作る。blocked(row, col) が true のセルは描かない。
 ---@param blocked fun(row: integer, col: integer): boolean
----@return table<integer, {col: integer, chunks: table}[]>
+---@return table<integer, { col: integer, cells: { [1]: string, [2]: string, [3]: string? }[] }[]> cells は {文字, 前景色, 背景色?}
 function M:runs(blocked)
   local out = {}
   for row = 0, self.rows - 1 do
     local runs, cur = {}, nil
     for col = 0, self.cols - 1 do
       local top, bottom = self.px[row * 2 * self.w + col], self.px[(row * 2 + 1) * self.w + col]
-      local chunk
+      local cell
       if (top or bottom) and not blocked(row, col) then
         if top and bottom then
-          chunk = top == bottom and { "█", hl(top) } or { "▀", hl(top, bottom) }
+          cell = top == bottom and { "█", top } or { "▀", top, bottom }
         elseif top then
-          chunk = { "▀", hl(top) }
+          cell = { "▀", top }
         else
-          chunk = { "▄", hl(bottom) }
+          cell = { "▄", bottom }
         end
       end
-      if chunk then
+      if cell then
         if not cur then
-          cur = { col = col, chunks = {} }
+          cur = { col = col, cells = {} }
           runs[#runs + 1] = cur
         end
-        cur.chunks[#cur.chunks + 1] = chunk
+        cur.cells[#cur.cells + 1] = cell
       else
         cur = nil
       end
@@ -77,20 +77,52 @@ function M:runs(blocked)
 end
 
 --- バッファに extmark として描画する。
-function M:draw(buf, ns, blocked)
+--- バッファの行がある範囲は、その行に重ねて描く。それより下は、最終行の下に仮想行として描く
+--- (実際の行を足すと、カーソルがそこへ入れてしまうため)。
+---@param row_bg fun(row: integer): string その行の背景色
+function M:draw(buf, ns, blocked, row_bg)
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
   local line_count = vim.api.nvim_buf_line_count(buf)
-  for row, runs in pairs(self:runs(blocked)) do
+  local runs_by_row = self:runs(blocked)
+
+  for row, runs in pairs(runs_by_row) do
     if row < line_count then
       for _, run in ipairs(runs) do
+        local chunks = {}
+        for i, cell in ipairs(run.cells) do
+          chunks[i] = { cell[1], hl(cell[2], cell[3]) }
+        end
         vim.api.nvim_buf_set_extmark(buf, ns, row, 0, {
-          virt_text = run.chunks,
+          virt_text = chunks,
           virt_text_win_col = run.col,
           hl_mode = "combine",
           priority = 200,
         })
       end
     end
+  end
+
+  if self.rows > line_count and line_count > 0 then
+    local virt_lines = {}
+    for row = line_count, self.rows - 1 do
+      local bg = row_bg(row)
+      local blank = hl(bg, bg)
+      local chunks, col = {}, 0
+      for _, run in ipairs(runs_by_row[row] or {}) do
+        if run.col > col then
+          chunks[#chunks + 1] = { string.rep(" ", run.col - col), blank }
+        end
+        for _, cell in ipairs(run.cells) do
+          chunks[#chunks + 1] = { cell[1], hl(cell[2], cell[3] or bg) }
+        end
+        col = run.col + #run.cells
+      end
+      if col < self.cols then
+        chunks[#chunks + 1] = { string.rep(" ", self.cols - col), blank }
+      end
+      virt_lines[#virt_lines + 1] = chunks
+    end
+    vim.api.nvim_buf_set_extmark(buf, ns, line_count - 1, 0, { virt_lines = virt_lines, priority = 200 })
   end
 end
 

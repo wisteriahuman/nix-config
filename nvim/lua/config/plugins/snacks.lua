@@ -54,7 +54,7 @@ return {
               {
                 icon = "󰒲 ",
                 key = "L",
-                desc = "Lazy (プラグイン管理)",
+                desc = "プラグイン管理",
                 action = ":Lazy",
                 enabled = package.loaded.lazy ~= nil,
               },
