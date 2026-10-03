@@ -380,7 +380,7 @@ function M.setup()
 
   vim.keymap.set("n", "<leader>ut", function()
     M.pick()
-  end, { desc = "Switch theme" })
+  end, { desc = "テーマ切り替え" })
 
   vim.api.nvim_create_autocmd("FocusGained", {
     callback = function()

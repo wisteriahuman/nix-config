@@ -340,7 +340,6 @@ return {
       vim.lsp.enable("tsp_server")
       vim.lsp.enable("dockerls")
       vim.lsp.enable("docker_compose_language_service")
-      vim.lsp.enable("mermaid_ls")
       vim.lsp.enable("sqls")
       vim.lsp.enable("bashls")
       vim.lsp.enable("yamlls")

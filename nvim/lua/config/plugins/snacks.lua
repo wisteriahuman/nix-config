@@ -25,15 +25,15 @@ return {
           enabled = true,
           preset = {
             keys = {
-              { icon = " ", key = "f", desc = "Find File", action = ":lua Snacks.dashboard.pick('files')" },
-              { icon = " ", key = "n", desc = "New File", action = ":ene | startinsert" },
-              { icon = "󰠮 ", key = "m", desc = "Memo", action = ":lua require('config.memo').today()" },
-              { icon = " ", key = "g", desc = "Find Text", action = ":lua Snacks.dashboard.pick('live_grep')" },
-              { icon = " ", key = "r", desc = "Recent Files", action = ":lua Snacks.dashboard.pick('oldfiles')" },
-              { icon = " ", key = "c", desc = "Config", action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})" },
-              { icon = " ", key = "s", desc = "Restore Session", section = "session" },
-              { icon = "󰒲 ", key = "L", desc = "Lazy", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
-              { icon = " ", key = "q", desc = "Quit", action = ":qa" },
+              { icon = " ", key = "f", desc = "ファイル検索", action = ":lua Snacks.dashboard.pick('files')" },
+              { icon = " ", key = "n", desc = "新規ファイル", action = ":ene | startinsert" },
+              { icon = "󰠮 ", key = "m", desc = "メモ", action = ":lua require('config.memo').today()" },
+              { icon = " ", key = "g", desc = "全文検索", action = ":lua Snacks.dashboard.pick('live_grep')" },
+              { icon = " ", key = "r", desc = "最近のファイル", action = ":lua Snacks.dashboard.pick('oldfiles')" },
+              { icon = " ", key = "c", desc = "設定", action = ":lua Snacks.dashboard.pick('files', {cwd = vim.fn.stdpath('config')})" },
+              { icon = " ", key = "s", desc = "セッション復元", section = "session" },
+              { icon = "󰒲 ", key = "L", desc = "Lazy (プラグイン管理)", action = ":Lazy", enabled = package.loaded.lazy ~= nil },
+              { icon = " ", key = "q", desc = "終了", action = ":qa" },
             },
           },
         },
@@ -50,16 +50,16 @@ return {
       local map = vim.keymap.set
       map("n", "]w", function()
         require("snacks").words.jump(1)
-      end, { desc = "Next Word Occurrence" })
+      end, { desc = "次の同じ単語へ" })
       map("n", "[w", function()
         require("snacks").words.jump(-1)
-      end, { desc = "Prev Word Occurrence" })
+      end, { desc = "前の同じ単語へ" })
       map("n", "<leader>nn", function()
         require("snacks").notifier.show_history()
-      end, { desc = "Notification History" })
+      end, { desc = "通知履歴" })
       map("n", "<leader>nd", function()
         require("snacks").notifier.hide()
-      end, { desc = "Dismiss Notifications" })
+      end, { desc = "通知を消す" })
     end,
   },
 }

@@ -15,7 +15,7 @@ return {
         },
       })
 
-      vim.keymap.set("n", "-", "<cmd>Oil --float<CR>", { desc = "Open Oil (float)" })
+      vim.keymap.set("n", "-", "<cmd>Oil --float<CR>", { desc = "Oil を開く (フロート)" })
     end,
   },
 }

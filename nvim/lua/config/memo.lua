@@ -69,8 +69,8 @@ vim.api.nvim_create_autocmd("BufWritePre", {
   end,
 })
 
-vim.keymap.set("n", "<leader>mn", M.today, { desc = "Memo: Today" })
-vim.keymap.set("n", "<leader>mf", M.find, { desc = "Memo: Find File" })
-vim.keymap.set("n", "<leader>mg", M.grep, { desc = "Memo: Grep" })
+vim.keymap.set("n", "<leader>mn", M.today, { desc = "メモ: 今日" })
+vim.keymap.set("n", "<leader>mf", M.find, { desc = "メモ: ファイル検索" })
+vim.keymap.set("n", "<leader>mg", M.grep, { desc = "メモ: 全文検索" })
 
 return M

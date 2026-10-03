@@ -7,7 +7,7 @@ return {
 
       vim.keymap.set("n", "<leader>dp", function()
         require("dropbar.api").pick()
-      end, { desc = "Dropbar Pick" })
+      end, { desc = "パンくずから選ぶ" })
     end,
   },
 }

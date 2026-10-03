@@ -41,7 +41,7 @@ return {
         },
       })
 
-      vim.keymap.set("n", "<leader>e", "<cmd>Neotree toggle<CR>", { desc = "Toggle Neo-tree" })
+      vim.keymap.set("n", "<leader>e", "<cmd>Neotree toggle<CR>", { desc = "ファイルツリー切り替え" })
     end,
   },
 }

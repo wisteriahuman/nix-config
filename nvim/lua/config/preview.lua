@@ -50,7 +50,7 @@ end
 vim.api.nvim_create_user_command("OpenApiPreview", M.openapi, {})
 vim.api.nvim_create_user_command("OpenApiPreviewStop", M.openapi_stop, {})
 
-vim.keymap.set("n", "<leader>po", M.openapi, { desc = "OpenAPI Preview (Arc)" })
-vim.keymap.set("n", "<leader>pO", M.openapi_stop, { desc = "OpenAPI Preview Stop" })
+vim.keymap.set("n", "<leader>po", M.openapi, { desc = "OpenAPI プレビュー (Arc)" })
+vim.keymap.set("n", "<leader>pO", M.openapi_stop, { desc = "OpenAPI プレビュー停止" })
 
 return M

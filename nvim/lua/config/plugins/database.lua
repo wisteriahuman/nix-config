@@ -12,7 +12,7 @@ return {
         function()
           require("dbee").toggle()
         end,
-        desc = "DB UI (dbee)",
+        desc = "DB 画面 (dbee)",
       },
     },
     config = function()

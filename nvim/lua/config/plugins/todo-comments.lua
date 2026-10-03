@@ -6,7 +6,7 @@ return {
     config = function()
       require("todo-comments").setup()
 
-      vim.keymap.set("n", "<leader>ft", "<cmd>TodoFzfLua<CR>", { desc = "Find TODOs" })
+      vim.keymap.set("n", "<leader>ft", "<cmd>TodoFzfLua<CR>", { desc = "TODO 検索" })
     end,
   },
 }

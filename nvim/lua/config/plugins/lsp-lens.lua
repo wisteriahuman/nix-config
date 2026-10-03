@@ -116,7 +116,7 @@ return {
       },
     },
     keys = {
-      { "<leader>uL", "<cmd>LspLensToggle<CR>", desc = "Toggle LSP Lens" },
+      { "<leader>uL", "<cmd>LspLensToggle<CR>", desc = "LSP Lens 切り替え" },
     },
   },
 }

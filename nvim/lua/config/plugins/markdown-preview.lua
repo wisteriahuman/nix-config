@@ -13,7 +13,7 @@ return {
       vim.g.mkdp_theme = "dark"
     end,
     keys = {
-      { "<leader>pm", "<cmd>MarkdownPreviewToggle<cr>", desc = "Markdown Preview (Arc)" },
+      { "<leader>pm", "<cmd>MarkdownPreviewToggle<cr>", desc = "Markdown プレビュー (Arc)" },
     },
   },
 }

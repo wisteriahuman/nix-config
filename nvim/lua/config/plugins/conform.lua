@@ -42,7 +42,7 @@ return {
 
       vim.keymap.set('n', 'gq', function()
         require('conform').format({ async = true })
-      end, { desc = 'Format' })
+      end, { desc = '整形' })
     end,
   },
 }

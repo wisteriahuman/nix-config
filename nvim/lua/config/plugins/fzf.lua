@@ -29,10 +29,10 @@ return {
       require("fzf-lua").register_ui_select()
 
       local map = vim.keymap.set
-      map("n", "<leader>ff", "<cmd>FzfLua files<CR>", { desc = "Find Files" })
-      map("n", "<leader>fg", "<cmd>FzfLua live_grep<CR>", { desc = "Live Grep" })
-      map("n", "<leader>fb", "<cmd>FzfLua buffers<CR>", { desc = "Buffers" })
-      map("n", "<leader>fh", "<cmd>FzfLua help_tags<CR>", { desc = "Help Tags" })
+      map("n", "<leader>ff", "<cmd>FzfLua files<CR>", { desc = "ファイル検索" })
+      map("n", "<leader>fg", "<cmd>FzfLua live_grep<CR>", { desc = "全文検索" })
+      map("n", "<leader>fb", "<cmd>FzfLua buffers<CR>", { desc = "バッファ一覧" })
+      map("n", "<leader>fh", "<cmd>FzfLua help_tags<CR>", { desc = "ヘルプ検索" })
       map("n", "<leader>?", "<cmd>FzfLua keymaps<CR>", { desc = "キーマップを検索" })
     end,
   },

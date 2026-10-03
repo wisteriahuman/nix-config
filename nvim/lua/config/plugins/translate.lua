@@ -18,8 +18,8 @@ return {
       })
 
       local map = vim.keymap.set
-      map({ "n", "v" }, "<leader>tj", "<cmd>Translate JA<CR>", { desc = "Translate to Japanese" })
-      map({ "n", "v" }, "<leader>te", "<cmd>Translate EN<CR>", { desc = "Translate to English" })
+      map({ "n", "v" }, "<leader>tj", "<cmd>Translate JA<CR>", { desc = "日本語に翻訳" })
+      map({ "n", "v" }, "<leader>te", "<cmd>Translate EN<CR>", { desc = "英語に翻訳" })
     end,
   },
 }

@@ -20,20 +20,20 @@ return {
       local neotest = require("neotest")
       map("n", "<leader>nr", function()
         neotest.run.run()
-      end, { desc = "Test Nearest" })
+      end, { desc = "カーソル位置のテストを実行" })
       map("n", "<leader>nf", function()
         neotest.run.run(vim.fn.expand("%"))
-      end, { desc = "Test File" })
+      end, { desc = "このファイルのテストを実行" })
       map("n", "<leader>ns", function()
         neotest.summary.toggle()
-      end, { desc = "Test Summary" })
+      end, { desc = "テスト一覧" })
       map("n", "<leader>no", function()
         neotest.output_panel.toggle()
-      end, { desc = "Test Output" })
+      end, { desc = "テスト出力" })
     end,
     keys = {
-      { "<leader>nr", desc = "Test Nearest" },
-      { "<leader>nf", desc = "Test File" },
+      { "<leader>nr", desc = "カーソル位置のテストを実行" },
+      { "<leader>nf", desc = "このファイルのテストを実行" },
     },
   },
 }

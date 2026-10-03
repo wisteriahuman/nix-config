@@ -21,7 +21,7 @@ return {
           end
           vim.notify("Copilot " .. (state.on and "ON" or "OFF"), vim.log.levels.INFO, { title = "Copilot" })
         end,
-        desc = "Toggle Copilot",
+        desc = "Copilot 切り替え",
       },
     },
     config = function()

@@ -9,7 +9,7 @@ return {
     cmd = "Neogit",
     keys = {
       { "<leader>gg", "<cmd>Neogit<CR>", desc = "Neogit" },
-      { "<leader>gb", "<cmd>FzfLua git_branches<CR>", desc = "Git Branches" },
+      { "<leader>gb", "<cmd>FzfLua git_branches<CR>", desc = "Git ブランチ一覧" },
     },
     opts = {
       integrations = {
