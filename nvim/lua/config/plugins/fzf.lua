@@ -22,6 +22,7 @@ return {
       map("n", "<leader>fg", "<cmd>FzfLua live_grep<CR>", { desc = "Live Grep" })
       map("n", "<leader>fb", "<cmd>FzfLua buffers<CR>", { desc = "Buffers" })
       map("n", "<leader>fh", "<cmd>FzfLua help_tags<CR>", { desc = "Help Tags" })
+      map("n", "<leader>?", "<cmd>FzfLua keymaps<CR>", { desc = "キーマップを検索" })
     end,
   },
 }

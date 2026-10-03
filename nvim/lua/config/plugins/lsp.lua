@@ -133,18 +133,32 @@ return {
 
       vim.api.nvim_create_autocmd("LspAttach", {
         callback = function(args)
-          local opts = { buffer = args.buf, silent = true }
-          vim.keymap.set("n", "gd", vim.lsp.buf.definition, opts)
-          vim.keymap.set("n", "gD", vim.lsp.buf.declaration, opts)
-          vim.keymap.set("n", "gi", vim.lsp.buf.implementation, opts)
-          vim.keymap.set("n", "gy", vim.lsp.buf.type_definition, opts)
-          vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
-          vim.keymap.set("n", "gr", vim.lsp.buf.references, opts)
-          vim.keymap.set({ "i", "n" }, "<C-k>", vim.lsp.buf.signature_help, opts)
-          vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
-          vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
-          vim.keymap.set("n", "<leader>ds", vim.lsp.buf.document_symbol, opts)
-          vim.keymap.set("n", "<leader>ws", vim.lsp.buf.workspace_symbol, opts)
+          local function map(lhs, rhs, desc)
+            vim.keymap.set("n", lhs, rhs, { buffer = args.buf, silent = true, desc = desc })
+          end
+          local function fzf(picker)
+            return function()
+              require("fzf-lua")[picker]()
+            end
+          end
+
+          map("gd", fzf("lsp_definitions"), "定義へ")
+          map("gD", vim.lsp.buf.declaration, "宣言へ")
+          map("K", vim.lsp.buf.hover, "ホバー")
+          map("grr", fzf("lsp_references"), "参照一覧")
+          map("gri", fzf("lsp_implementations"), "実装一覧")
+          map("grt", fzf("lsp_typedefs"), "型定義へ")
+          map("gO", fzf("lsp_document_symbols"), "ファイル内シンボル")
+          map("<leader>rn", vim.lsp.buf.rename, "リネーム")
+          map("<leader>ca", vim.lsp.buf.code_action, "コードアクション")
+
+          map("<leader>lr", vim.lsp.buf.rename, "リネーム")
+          map("<leader>la", vim.lsp.buf.code_action, "コードアクション")
+          map("<leader>lf", fzf("lsp_finder"), "定義・参照・実装をまとめて表示")
+          map("<leader>ls", fzf("lsp_document_symbols"), "ファイル内シンボル")
+          map("<leader>lS", fzf("lsp_live_workspace_symbols"), "プロジェクト全体のシンボル")
+          map("<leader>li", fzf("lsp_incoming_calls"), "この関数を呼んでいる箇所")
+          map("<leader>lo", fzf("lsp_outgoing_calls"), "この関数が呼んでいる関数")
 
           local client = vim.lsp.get_client_by_id(args.data.client_id)
 
@@ -152,11 +166,77 @@ return {
             client.server_capabilities.documentFormattingProvider = false
             client.server_capabilities.documentRangeFormattingProvider = false
           end
+        end,
+      })
 
-          if client and client:supports_method("textDocument/inlayHint") then
-            vim.lsp.inlay_hint.enable(true, { bufnr = args.buf })
+      local map = vim.keymap.set
+      map("n", "<leader>ld", "<cmd>FzfLua diagnostics_document<CR>", { desc = "このファイルの診断" })
+      map("n", "<leader>lD", "<cmd>FzfLua diagnostics_workspace<CR>", { desc = "プロジェクト全体の診断" })
+      map("n", "<leader>ll", vim.diagnostic.open_float, { desc = "この行の診断を全文表示" })
+      map("n", "<leader>lI", "<cmd>checkhealth vim.lsp<CR>", { desc = "LSP の状態" })
+
+      -- stdpath("config") は nix store 経由の symlink なので実体のパスを開く
+      local snippets_dir = vim.uv.fs_realpath(vim.fn.stdpath("config")) .. "/snippets"
+      map("n", "<leader>le", function()
+        vim.cmd.edit(snippets_dir .. "/" .. vim.bo.filetype .. ".json")
+      end, { desc = "このファイルタイプの自作スニペットを編集" })
+      vim.api.nvim_create_autocmd("BufWritePost", {
+        pattern = snippets_dir .. "/*.json",
+        callback = function()
+          if package.loaded["blink.cmp"] then
+            require("blink.cmp").reload("snippets")
           end
         end,
+      })
+
+      local hints = true
+      vim.lsp.inlay_hint.enable(hints)
+      map("n", "<leader>lh", function()
+        hints = not hints
+        vim.lsp.inlay_hint.enable(hints)
+      end, { desc = "inlay hints 切り替え" })
+      vim.api.nvim_create_autocmd({ "InsertEnter", "InsertLeave" }, {
+        callback = function(args)
+          vim.lsp.inlay_hint.enable(hints and args.event == "InsertLeave")
+        end,
+      })
+
+      local icons = { ERROR = "\u{f057}", WARN = "\u{f071}", INFO = "\u{f05a}", HINT = "\u{f0335}" }
+      local signs = {}
+      for name, icon in pairs(icons) do
+        signs[vim.diagnostic.severity[name]] = icon
+      end
+      -- virtual_lines は診断位置の桁から始まり折り返さないので、残り幅で自前で折り返す
+      local function wrap_to_window(diagnostic)
+        local win = vim.fn.bufwinid(diagnostic.bufnr)
+        if win == -1 then
+          return diagnostic.message
+        end
+        local used = vim.fn.virtcol({ diagnostic.lnum + 1, diagnostic.col + 1 }, false, win)
+        local width = vim.api.nvim_win_get_width(win) - vim.fn.getwininfo(win)[1].textoff - used - 8
+        width = math.max(width, 30)
+        local lines = {}
+        for _, paragraph in ipairs(vim.split(diagnostic.message, "\n")) do
+          local line = ""
+          for word in paragraph:gmatch("%S+") do
+            if line ~= "" and vim.fn.strdisplaywidth(line .. " " .. word) > width then
+              table.insert(lines, line)
+              line = word
+            else
+              line = line == "" and word or (line .. " " .. word)
+            end
+          end
+          table.insert(lines, line)
+        end
+        return table.concat(lines, "\n")
+      end
+
+      vim.diagnostic.config({
+        severity_sort = true,
+        signs = { text = signs },
+        virtual_text = { current_line = false },
+        virtual_lines = { current_line = true, format = wrap_to_window },
+        float = { border = "rounded", source = true },
       })
 
       vim.lsp.enable("lua_ls")
