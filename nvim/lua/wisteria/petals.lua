@@ -26,6 +26,8 @@ local MAX_RESTING = 14
 ---@field color string
 ---@field lands boolean ものの上に乗るか(乗らない花びらは後ろを通り抜ける)
 ---@field rest? number 乗っている残り秒数
+---@field kx? number 猫に払われた勢い(ドット/秒)
+---@field ky? number
 
 ---@class wisteria.Petals
 ---@field list wisteria.Petal[]
@@ -91,8 +93,13 @@ function P:step(dt, motion, env)
       p.rest = p.rest - dt
       alive = p.rest > 0
     else
-      local nx = p.x + (wind + math.cos(self.t * 1.7 + p.phase) * motion.sway) * dt
-      local ny = p.y + motion.fall * dt
+      local nx = p.x + (wind + math.cos(self.t * 1.7 + p.phase) * motion.sway + (p.kx or 0)) * dt
+      local ny = p.y + (motion.fall + (p.ky or 0)) * dt
+      if p.kx then
+        -- 払われた勢いは、すぐに弱まる
+        local keep_rate = math.max(0, 1 - 2.5 * dt)
+        p.kx, p.ky = p.kx * keep_rate, p.ky * keep_rate
+      end
       local cx, cy, fx, fy = math.floor(p.x + 0.5), math.floor(p.y + 0.5), math.floor(nx + 0.5), math.floor(ny + 0.5)
       if fy >= env.h - 1 then
         -- 地面に落ちたら、しばらく残って消える
@@ -114,6 +121,26 @@ function P:step(dt, motion, env)
     end
   end
   self.list = keep
+end
+
+--- 範囲内の花びらを弾き飛ばす(猫が払う・振り落とす)。
+---@param x1 number
+---@param y1 number
+---@param x2 number
+---@param y2 number
+---@param kx number
+---@param ky number
+---@return integer 弾いた枚数
+function P:kick(x1, y1, x2, y2, kx, ky)
+  local n = 0
+  for _, p in ipairs(self.list) do
+    if p.x >= x1 and p.x <= x2 and p.y >= y1 and p.y <= y2 then
+      p.rest, p.lands = nil, false
+      p.kx, p.ky = kx * (0.6 + math.random() * 0.8), ky * (0.6 + math.random() * 0.8)
+      n = n + 1
+    end
+  end
+  return n
 end
 
 ---@param canvas wisteria.Canvas

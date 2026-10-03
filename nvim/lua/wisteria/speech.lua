@@ -55,6 +55,8 @@ end
 ---@field lines string[]
 ---@field index integer
 ---@field t number
+---@field override? string
+---@field override_left? number
 local S = {}
 S.__index = S
 
@@ -81,10 +83,35 @@ function M.new(period_name)
   return self
 end
 
+-- 猫の動きに合わせた一言
+local REACTIONS = {
+  swipe = { "えいっ", "とった", "…外した" },
+  shake = { "…もう。乗らないでよ", "ぷるぷる" },
+  yawn = { "ふあ…", "…ねむ" },
+  groom = { "いま忙しいから", "見ないでよ" },
+  stretch = { "んー…っ" },
+}
+
+--- 動きに合わせて、しばらく別の一言を言う。
+---@param event string
+function S:react(event)
+  local list = REACTIONS[event]
+  if list then
+    self.override, self.override_left = list[math.random(#list)], 2.2
+  end
+end
+
 --- いま言っている一言。数秒ごとに次へ進む。
 ---@param dt number
 ---@return string
 function S:current(dt)
+  if self.override then
+    self.override_left = self.override_left - dt
+    if self.override_left > 0 then
+      return self.override
+    end
+    self.override = nil
+  end
   self.t = self.t + dt
   if self.t > 7 then
     self.t = 0

@@ -2,12 +2,16 @@
 -- 風でそれが塵になって崩れ、降りた塵がロゴとメニューになる。最後に猫が飛び降りて歩いてきて座る。
 local cat = require("wisteria.cat")
 local color = require("wisteria.color")
+local sky_art = require("wisteria.sky")
 
 local M = {}
 
 -- 各場面の区間(秒)
 local T = {
-  sky = { 0, 1.1 },
+  sky = { 0, 1.9 },
+  rise = { 0.2, 2.6 }, -- 太陽や月が動く
+  stars = { 0.9, 3.2 }, -- 星が1つずつ灯る
+  meteor = 3.3, -- 流れ星
   vine = { 0.6, 1.5 },
   grow = { 1.1, 3.0 },
   form = { 2.8, 4.6 },
@@ -126,6 +130,9 @@ end
 ---@field w integer ドット単位の幅
 ---@field h integer ドット単位の高さ
 ---@field parts wisteria.Parts
+---@field body? wisteria.Body 太陽か月
+---@field stars wisteria.Star[]
+---@field bg_at fun(y: integer): string そのドット行の背景色(暗転を掛けたあと)
 ---@field logo { left: integer, right: integer, top: integer, bottom: integer }
 ---@field logo_cells { [1]: integer, [2]: integer }[] ロゴの文字があるセル {row, col}
 ---@field text table<integer, table<integer, boolean>> 文字のあるセル
@@ -154,6 +161,8 @@ end
 ---@field arrive table<integer, number> ロゴのセル(row * w + col)ごとの、灯る時刻
 ---@field row_lag table<integer, number> メニューの行ごとの、現れる遅れ
 ---@field gust { y: number, lag: number, phase: number, color: string }[]
+---@field meteor? wisteria.Meteor|false
+---@field meteor_t? number
 local I = {}
 I.__index = I
 
@@ -323,6 +332,22 @@ function I:draw(canvas, t)
   local front = gust_front(env, t)
   -- 風の間、房の先が風下へ流れる
   local blow = front and math.sin(progress(T.gust, t) * math.pi) * 2.2 or 0
+
+  -- 星が1つずつ灯り、流れ星が1つ流れる
+  if #env.stars > 0 then
+    sky_art.draw_stars(canvas, env.stars, t, progress(T.stars, t))
+    if t >= T.meteor then
+      self.meteor = self.meteor == nil and sky_art.meteor(env.w, env.h) or self.meteor
+      if self.meteor and not sky_art.draw_meteor(canvas, self.meteor, t - (self.meteor_t or t)) then
+        self.meteor = false
+      end
+      self.meteor_t = t
+    end
+  end
+  -- 朝日は昇り、夕日は沈んでくる。月は昇る。
+  if env.body and t >= T.rise[1] then
+    sky_art.draw_body(canvas, env.body, env.body.def.from * (1 - ease_in_out(progress(T.rise, t))), env.bg_at)
+  end
 
   -- 房: 1本ずつ伸び、伸びている間は先が揺れる
   for i, r in ipairs(env.parts.racemes) do

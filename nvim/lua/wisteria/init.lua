@@ -6,6 +6,7 @@ local intro = require("wisteria.intro")
 local opening = require("wisteria.opening")
 local petals = require("wisteria.petals")
 local scene = require("wisteria.scene")
+local sky_art = require("wisteria.sky")
 local speech = require("wisteria.speech")
 
 local M = {}
@@ -25,7 +26,10 @@ local DARK = "#07050b" -- オープニングの出だしの暗闇
 ---@class wisteria.State
 ---@field buf integer
 ---@field win integer
----@field static wisteria.Canvas 藤だけを描いた、動かない層
+---@field static wisteria.Canvas 太陽か月と、藤を描いた動かない層
+---@field stars wisteria.Star[]
+---@field meteor? wisteria.Meteor いま流れている流れ星
+---@field next_meteor? number
 ---@field text table<integer, table<integer, boolean>> 文字のあるセル
 ---@field logo? { left: integer, right: integer, top: integer, bottom: integer }
 ---@field period wisteria.Period
@@ -223,20 +227,26 @@ end_opening_guard = function()
   end
 end
 
+--- 画面の上から frac(0..1) の高さでの明るさ。光は地平線(下)から上へ広がる。
+local function fade_at(value, frac)
+  return math.min(1, math.max(0, value * 1.7 - (1 - frac) * 0.7))
+end
+
 --- 空の明るさを変える(長い版の出だしで、暗闇から空が明ける)。
 local function apply_fade(st, value)
   if st.fade == value then
     return
   end
   st.fade = value
-  local function shade(c)
-    return tonumber(color.mix(DARK, c, value):sub(2), 16)
+  local rows = st.static.rows
+  local function shade(c, frac)
+    return tonumber(color.mix(DARK, c, fade_at(value, frac)):sub(2), 16)
   end
   for row = 0, vim.api.nvim_buf_line_count(st.buf) - 1 do
-    vim.api.nvim_set_hl(0, "WisteriaBg" .. row, { bg = shade(st.sky(row)) })
+    vim.api.nvim_set_hl(0, "WisteriaBg" .. row, { bg = shade(st.sky(row), rows > 1 and row / (rows - 1) or 0) })
   end
-  vim.api.nvim_set_hl(0, "SnacksDashboardNormal", { fg = st.fg, bg = shade(st.period.bg) })
-  vim.api.nvim_set_hl(0, "MsgArea", { bg = shade(st.sky(st.static.rows)) })
+  vim.api.nvim_set_hl(0, "SnacksDashboardNormal", { fg = st.fg, bg = shade(st.period.bg, 0.5) })
+  vim.api.nvim_set_hl(0, "MsgArea", { bg = shade(st.sky(rows), 1) })
 end
 
 --- hidden(row, col) が true のセルの文字を、背景色で覆う。
@@ -409,13 +419,44 @@ local function frame(dt)
     return
   end
 
+  -- 星は藤の後ろで瞬く。ときどき流れ星が流れる。
+  if #st.stars > 0 then
+    sky_art.draw_stars(canvas, st.stars, st.t)
+    if st.meteor then
+      if not sky_art.draw_meteor(canvas, st.meteor, dt) then
+        st.meteor = nil
+      end
+    elseif st.t > (st.next_meteor or 12) then
+      st.meteor = sky_art.meteor(canvas.w, canvas.h)
+      st.next_meteor = st.t + 25 + math.random() * 45
+    end
+  end
   copy_static(canvas, st)
 
   local pose, cat_x, cat_y
   if st.logo then
-    pose = cat.pose(st.cat, st.period, dt)
     cat_x, cat_y = st.logo.right - 15, st.logo.top * 2 - cat.height
+    local event
+    pose, event = cat.pose(st.cat, st.period, dt, { petals = st.petals.list, x = cat_x, y = cat_y })
     cat.draw(canvas, pose, cat_x, cat_y, st.period)
+    if event == "swipe" then
+      -- 右手の先にある花びらを、右上へ弾く
+      st.petals:kick(cat_x + 6, cat_y - 4, cat_x + 15, cat_y + 8, 16, -12)
+    elseif event == "shake" then
+      -- 頭や背中に乗っていた花びらを散らす
+      st.petals:kick(
+        cat_x - 1,
+        cat_y - 3,
+        cat_x + cat.width,
+        cat_y + cat.height,
+        9 * (math.random() < 0.5 and -1 or 1),
+        -9
+      )
+    end
+    -- 手を出すたびにしゃべると騒がしいので、払ったときの一言はときどきだけ
+    if event and (event ~= "swipe" or math.random() < 0.4) then
+      st.speech:react(event)
+    end
 
     local said = st.speech:current(dt)
     if said ~= st.said then
@@ -574,7 +615,10 @@ function M.render()
   end
   local function row_bg(row)
     local fade = state and state.fade or 1
-    return fade < 1 and color.mix(DARK, sky(row), fade) or sky(row)
+    if fade >= 1 then
+      return sky(row)
+    end
+    return color.mix(DARK, sky(row), fade_at(fade, height > 1 and math.min(1, row / (height - 1)) or 0))
   end
   vim.api.nvim_buf_clear_namespace(buf, ns_bg, 0, -1)
   for row = 0, #lines - 1 do
@@ -592,9 +636,18 @@ function M.render()
 
   local art = M.band() > 0 and box.right >= 0
   local static = Canvas.new(art and width or 0, art and height or 0)
-  local parts
+  local parts, body, stars = nil, nil, {}
   if art then
-    parts = scene.build(width, height * 2, box, period, tonumber(os.date("%Y%m%d")))
+    local seed = tonumber(os.date("%Y%m%d"))
+    -- 太陽や月は藤の後ろにあるので、先に描く
+    body = sky_art.body(width, height * 2, period)
+    if body then
+      sky_art.draw_body(static, body, 0, function(y)
+        return sky(math.floor(y / 2))
+      end)
+    end
+    stars = sky_art.stars(width, height * 2, period, seed)
+    parts = scene.build(width, height * 2, box, period, seed)
     scene.draw(static, parts)
   end
 
@@ -604,6 +657,7 @@ function M.render()
     buf = buf,
     win = win,
     static = static,
+    stars = stars,
     text = text,
     logo = art and logo or nil,
     period = period,
@@ -628,6 +682,11 @@ function M.render()
       w = width,
       h = height * 2,
       parts = parts,
+      body = body,
+      stars = stars,
+      bg_at = function(y)
+        return row_bg(math.floor(y / 2))
+      end,
       logo = logo,
       logo_cells = logo_cells,
       text = text,
