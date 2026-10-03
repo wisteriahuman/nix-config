@@ -169,6 +169,87 @@ function M.draw_stars(canvas, stars, t, shown)
   end
 end
 
+---@class wisteria.Cloud
+---@field x number
+---@field y integer
+---@field speed number 流れる速さ(ドット/秒)
+---@field px { [1]: integer, [2]: integer, [3]: boolean }[] 雲のドット {dx, dy, 明るい側か}
+---@field width integer
+
+local CLOUD_LIGHT, CLOUD_SHADE = "#fbf8ff", "#d3caec"
+
+--- 昼の雲。丸をいくつか重ねた形を、右下の空いた所にゆっくり流す。
+---@return wisteria.Cloud[]
+function M.clouds(w, h, period, seed)
+  local clouds = {}
+  if period.name ~= "day" then
+    return clouds
+  end
+  local r = rng.new(seed + 41)
+  for i = 1, 3 do
+    local puffs, width = {}, 0
+    local n = r:int(3, 5)
+    for k = 1, n do
+      local radius = 2.2 + r:next() * 2.2
+      puffs[k] = { (k - 1) * 3.6 + r:next() * 1.5, r:next() * 1.6 - (k > 1 and k < n and 1.4 or 0), radius }
+      width = math.max(width, math.ceil(puffs[k][1] + radius))
+    end
+    local px = {}
+    for dy = -6, 5 do
+      for dx = -5, width + 1 do
+        local inside = false
+        for _, p in ipairs(puffs) do
+          -- 下側は平たく切って、雲の底にする
+          if dy <= 2 and (dx - p[1]) ^ 2 + (dy - p[2]) ^ 2 <= p[3] ^ 2 then
+            inside = true
+            break
+          end
+        end
+        if inside then
+          px[#px + 1] = { dx, dy, dy < 0 }
+        end
+      end
+    end
+    clouds[i] = {
+      x = r:next() * w,
+      -- 一覧の下の空いた帯の中だけを流す(文字の隙間を通ると、切れ切れに見える)
+      y = h - 4 - (i - 1) * 4,
+      speed = 0.9 + r:next() * 1.3,
+      px = px,
+      width = width + 8,
+    }
+  end
+  return clouds
+end
+
+--- 雲を描く。背景に溶かして、淡く見せる。
+---@param canvas wisteria.Canvas
+---@param clouds wisteria.Cloud[]
+---@param t number
+---@param bg_at fun(y: integer): string
+---@param light? number 空の明るさ(0..1)。オープニングの暗闇では雲も見えないようにする。
+function M.draw_clouds(canvas, clouds, t, bg_at, light)
+  light = light or 1
+  if light <= 0 then
+    return
+  end
+  for _, c in ipairs(clouds) do
+    -- 右端から出たら、左端から戻ってくる
+    local x0 = math.floor((c.x + t * c.speed) % (canvas.w + c.width) - c.width + 0.5)
+    for _, p in ipairs(c.px) do
+      local y = c.y + p[2]
+      if y >= 6 and y < canvas.h then
+        local bg = bg_at(y)
+        canvas:set(
+          x0 + p[1],
+          y,
+          p[3] and color.mix(bg, CLOUD_LIGHT, 0.74 * light) or color.mix(bg, CLOUD_SHADE, 0.52 * light)
+        )
+      end
+    end
+  end
+end
+
 ---@class wisteria.Meteor
 ---@field x number
 ---@field y number

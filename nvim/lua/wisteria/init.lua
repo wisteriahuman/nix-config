@@ -1,5 +1,6 @@
 -- タイトル画面(snacks dashboard)に藤と猫を重ねて描く。
 local Canvas = require("wisteria.canvas")
+local bee = require("wisteria.bee")
 local cat = require("wisteria.cat")
 local color = require("wisteria.color")
 local intro = require("wisteria.intro")
@@ -28,6 +29,8 @@ local DARK = "#07050b" -- オープニングの出だしの暗闇
 ---@field win integer
 ---@field static wisteria.Canvas 太陽か月と、藤を描いた動かない層
 ---@field stars wisteria.Star[]
+---@field clouds wisteria.Cloud[]
+---@field bees? wisteria.Bees 昼のクマバチ
 ---@field meteor? wisteria.Meteor いま流れている流れ星
 ---@field next_meteor? number
 ---@field text table<integer, table<integer, boolean>> 文字のあるセル
@@ -366,7 +369,7 @@ local function frame(dt)
     st.intro = st.intro or intro.new(st.intro_env)
     local scene_now, t = st.intro, op.t
     apply_fade(st, scene_now:fade(t))
-    scene_now:draw(canvas, t)
+    scene_now:draw(canvas, t, st.t, dt)
     draw_cover_cells(st, function(row, col)
       return scene_now:hidden(row, col, t)
     end)
@@ -386,6 +389,12 @@ local function frame(dt)
     return
   end
   if op then
+    -- 雲と蜂は、短い版でも最初から居る
+    if #st.clouds > 0 then
+      sky_art.draw_clouds(canvas, st.clouds, st.t, function(y)
+        return st.row_bg(math.floor(y / 2))
+      end)
+    end
     -- 藤は上から伸びる
     local clip, w = opening.progress(op, "grow") * canvas.h, canvas.w
     for i, c in pairs(st.static.px) do
@@ -411,6 +420,10 @@ local function frame(dt)
         top - 1
       )
     end
+    if st.bees then
+      st.bees:step(dt)
+      st.bees:draw(canvas)
+    end
     draw_cover(st, op)
     canvas:draw(st.buf, ns, function(row, col)
       local t = st.text[row]
@@ -431,17 +444,31 @@ local function frame(dt)
       st.next_meteor = st.t + 25 + math.random() * 45
     end
   end
+  if #st.clouds > 0 then
+    sky_art.draw_clouds(canvas, st.clouds, st.t, function(y)
+      return st.row_bg(math.floor(y / 2))
+    end)
+  end
   copy_static(canvas, st)
 
   local pose, cat_x, cat_y
   if st.logo then
     cat_x, cat_y = st.logo.right - 15, st.logo.top * 2 - cat.height
     local event
-    pose, event = cat.pose(st.cat, st.period, dt, { petals = st.petals.list, x = cat_x, y = cat_y })
+    -- 猫は花びらと同じように、蜂も目で追い、手を出す
+    local targets = st.petals.list
+    if st.bees and #st.bees.list > 0 then
+      targets = vim.list_extend({}, targets)
+      vim.list_extend(targets, st.bees.list)
+    end
+    pose, event = cat.pose(st.cat, st.period, dt, { petals = targets, x = cat_x, y = cat_y })
     cat.draw(canvas, pose, cat_x, cat_y, st.period)
     if event == "swipe" then
       -- 右手の先にある花びらを、右上へ弾く
       st.petals:kick(cat_x + 6, cat_y - 4, cat_x + 15, cat_y + 8, 16, -12)
+      if st.bees then
+        st.bees:scare(cat_x + 4, cat_y - 6, cat_x + 17, cat_y + 9)
+      end
     elseif event == "shake" then
       -- 頭や背中に乗っていた花びらを散らす
       st.petals:kick(
@@ -481,6 +508,10 @@ local function frame(dt)
     end,
   })
   st.petals:draw(canvas)
+  if st.bees then
+    st.bees:step(dt)
+    st.bees:draw(canvas)
+  end
 
   canvas:draw(st.buf, ns, function(row, col)
     local t = st.text[row]
@@ -519,6 +550,11 @@ function M.replay()
   st.said, st.bubble = nil, nil
   st.petals = petals.new()
   st.opening, st.intro = opening.new("long"), nil
+  -- 蜂も最初からやり直す(画面の外から飛んでくるところから)
+  if st.bees and st.intro_env then
+    st.bees = bee.new(#st.bees.list, st.intro_env.parts, st.static.cols, st.static.rows * 2)
+    st.intro_env.bees = st.bees
+  end
   begin_opening_guard()
 end
 
@@ -636,7 +672,7 @@ function M.render()
 
   local art = M.band() > 0 and box.right >= 0
   local static = Canvas.new(art and width or 0, art and height or 0)
-  local parts, body, stars = nil, nil, {}
+  local parts, body, stars, clouds = nil, nil, {}, {}
   if art then
     local seed = tonumber(os.date("%Y%m%d"))
     -- 太陽や月は藤の後ろにあるので、先に描く
@@ -647,6 +683,7 @@ function M.render()
       end)
     end
     stars = sky_art.stars(width, height * 2, period, seed)
+    clouds = sky_art.clouds(width, height * 2, period, seed)
     parts = scene.build(width, height * 2, box, period, seed)
     scene.draw(static, parts)
   end
@@ -658,6 +695,8 @@ function M.render()
     win = win,
     static = static,
     stars = stars,
+    clouds = clouds,
+    bees = (art and period.name == "day") and (same and state.bees or bee.new(2, parts, width, height * 2)) or nil,
     text = text,
     logo = art and logo or nil,
     period = period,
@@ -684,6 +723,8 @@ function M.render()
       parts = parts,
       body = body,
       stars = stars,
+      clouds = clouds,
+      bees = state.bees,
       bg_at = function(y)
         return row_bg(math.floor(y / 2))
       end,

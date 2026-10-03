@@ -132,6 +132,8 @@ end
 ---@field parts wisteria.Parts
 ---@field body? wisteria.Body 太陽か月
 ---@field stars wisteria.Star[]
+---@field clouds wisteria.Cloud[]
+---@field bees? wisteria.Bees
 ---@field bg_at fun(y: integer): string そのドット行の背景色(暗転を掛けたあと)
 ---@field logo { left: integer, right: integer, top: integer, bottom: integer }
 ---@field logo_cells { [1]: integer, [2]: integer }[] ロゴの文字があるセル {row, col}
@@ -163,6 +165,7 @@ end
 ---@field gust { y: number, lag: number, phase: number, color: string }[]
 ---@field meteor? wisteria.Meteor|false
 ---@field meteor_t? number
+---@field bees_scared? boolean
 local I = {}
 I.__index = I
 
@@ -327,8 +330,15 @@ end
 --- その時刻の絵を canvas に描く。
 ---@param canvas wisteria.Canvas
 ---@param t number 経過秒
-function I:draw(canvas, t)
+---@param clock number タイトル画面を開いてからの秒数(雲の位置を、演出のあとと揃えるため)
+---@param dt number 前のコマからの秒数
+function I:draw(canvas, t, clock, dt)
   local env = self.env
+
+  -- 雲は最初から流れているが、暗闇では見えない。空が明けるにつれて浮かび上がる。
+  if #env.clouds > 0 then
+    sky_art.draw_clouds(canvas, env.clouds, clock, env.bg_at, math.floor(self:fade(t) ^ 2 * 8 + 0.5) / 8)
+  end
   local front = gust_front(env, t)
   -- 風の間、房の先が風下へ流れる
   local blow = front and math.sin(progress(T.gust, t) * math.pi) * 2.2 or 0
@@ -407,6 +417,16 @@ function I:draw(canvas, t)
     else
       cat.draw(canvas, (t - T.walk[2]) % 1.2 > 1.05 and "sit_blink" or "sit", env.seat_x, env.seat_y, env.period)
     end
+  end
+
+  -- 蜂は、藤が咲いた頃に画面の外から飛んでくる。風が吹くと驚いて逃げる。
+  if env.bees and t >= T.grow[1] + 1.0 then
+    if front and not self.bees_scared then
+      self.bees_scared = true
+      env.bees:scare(0, 0, env.w, env.h)
+    end
+    env.bees:step(dt)
+    env.bees:draw(canvas)
   end
 
   -- 風に乗る花びら

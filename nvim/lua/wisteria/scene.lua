@@ -27,7 +27,7 @@ M.periods = {
     amount = 0.18,
     sky = { "#1d1a3a", "#6b3f58", 0.8 },
   },
-  day = { name = "day", shade_amount = 0, amount = 0 },
+  day = { name = "day", shade_amount = 0, amount = 0, sky = { "#1d1a33", "#3d3a68", 0.55 } },
   evening = {
     name = "evening",
     shade = "#7a2a1e",
