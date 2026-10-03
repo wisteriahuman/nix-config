@@ -1,49 +1,7 @@
 return {
   {
-    "williamboman/mason.nvim",
-    config = function()
-      require("mason").setup()
-      local registry = require("mason-registry")
-      local tools = { "stylua", "biome", "ruff", "goimports", "shfmt", "shellcheck", "hadolint", "actionlint" }
-      for _, tool in ipairs(tools) do
-        if not registry.is_installed(tool) then
-          registry.get_package(tool):install()
-        end
-      end
-    end,
-  },
-  {
-    "williamboman/mason-lspconfig.nvim",
-    dependencies = { "williamboman/mason.nvim" },
-    config = function()
-      require("mason-lspconfig").setup({
-        ensure_installed = {
-          "lua_ls",
-          "gopls",
-          "pyright",
-          "vtsls",
-          "eslint",
-          "html",
-          "cssls",
-          "jsonls",
-          "astro",
-          "rust_analyzer",
-          "dockerls",
-          "docker_compose_language_service",
-          "sqls",
-          "bashls",
-          "yamlls",
-          "taplo",
-          "marksman",
-        },
-        -- vtsls に置き換えたので、mason に残っている ts_ls は起動させない
-        automatic_enable = { exclude = { "ts_ls" } },
-      })
-    end,
-  },
-  {
     "neovim/nvim-lspconfig",
-    dependencies = { "williamboman/mason-lspconfig.nvim", "b0o/SchemaStore.nvim" },
+    dependencies = { "b0o/SchemaStore.nvim" },
     config = function()
       -- サーバが diagnostics: null を送ると vim.NIL のまま届き
       -- runtime の handle_diagnostics が #diagnostics で落ちるため空配列に正規化する
@@ -345,6 +303,7 @@ return {
       vim.lsp.enable("yamlls")
       vim.lsp.enable("taplo")
       vim.lsp.enable("marksman")
+      vim.lsp.enable("nixd")
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "swift",

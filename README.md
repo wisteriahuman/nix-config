@@ -63,6 +63,8 @@ nix-sync
 
 Neovimはnix管理（`common.nix`）なので、`mise install`を待たずbootstrap完了時点で使える。言語ランタイム類は`mise/`側。
 
+Neovimが使うLSP・リンタ・フォーマッタは`dev-tools.nix`にまとめてあり、全roleがimportする。Goの版に合わせる必要がある`gopls`と`goimports`だけは`mise/common.toml`で入れる。
+
 新しい役割を追加する場合は、`hosts/`に倣って新規ファイルを作り、`flake.nix`の`roles`に1エントリ（`module`と対応`systems`）を追加する。既存roleを別アーキテクチャに対応させる場合は、その role の`systems`に追記するだけでよい。
 
 ## `bin/docker`

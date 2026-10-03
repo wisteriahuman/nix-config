@@ -35,7 +35,6 @@ in
     direnv
     fd
     tree-sitter
-    stylua
     unzip
     fastfetch
     chafa

@@ -1,7 +1,7 @@
 { pkgs, config, ... }:
 
 {
-  imports = [ ../common.nix ];
+  imports = [ ../common.nix ../dev-tools.nix ];
 
   # home.username / home.homeDirectory は common.nix が実行中のアカウントから決める
 
