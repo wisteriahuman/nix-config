@@ -18,7 +18,6 @@
     nixd
     dockerfile-language-server
     docker-compose-language-service
-    sqls
 
     # リンタ・フォーマッタ
     biome

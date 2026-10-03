@@ -23,7 +23,7 @@ local commands = {
   {
     "mermaid-er",
     "mermaid: ER図",
-    "```mermaid\nerDiagram\n  USER {\n    int id PK\n    string name\n  }\n  POST {\n    int id PK\n    int user_id FK\n  }\n\n  USER ||--o{ POST : writes\n```",
+    "```mermaid\nerDiagram\n  users {\n    int id PK\n    string name\n  }\n  posts {\n    int id PK\n    int user_id FK\n  }\n\n  users ||--o{ posts : writes\n```",
     true,
   },
   { "mermaid-seq", "mermaid: シーケンス図", "```mermaid\nsequenceDiagram\n  Client->>Server: request\n  Server-->>Client: response\n```", true },

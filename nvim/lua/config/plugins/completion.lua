@@ -22,13 +22,14 @@ return {
         sources = {
           default = { "lsp", "path", "buffer", "snippets" },
           per_filetype = {
-            sql = { "snippets", "dbee", "buffer" },
+            sql = { "sqlcard", "snippets", "dbee", "buffer" },
             markdown = { "slash", "lsp", "path", "snippets", "buffer" },
           },
           providers = {
             snippets = { opts = { extended_filetypes = { ruby = { "rails" } } } },
             slash = { name = "Slash", module = "config.slash", score_offset = 100 },
             dbee = { name = "cmp-dbee", module = "blink.compat.source" },
+            sqlcard = { name = "sqlcard", module = "sqlcard.source" },
           },
         },
         completion = {

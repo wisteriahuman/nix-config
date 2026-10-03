@@ -20,6 +20,14 @@ return {
     end,
   },
   {
+    "wisteriahuman/sqlcard.nvim",
+    ft = "sql",
+    cmd = { "SqlCard", "SqlCardInsert", "SqlDialect" },
+    config = function()
+      require("sqlcard").setup()
+    end,
+  },
+  {
     "MattiasMTS/cmp-dbee",
     dependencies = { "kndndrj/nvim-dbee" },
     ft = "sql",
