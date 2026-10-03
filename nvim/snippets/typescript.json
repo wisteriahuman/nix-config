@@ -1,0 +1,72 @@
+{
+  "describe": {
+    "prefix": "desc",
+    "body": [
+      "describe(\"${1:name}\", () => {",
+      "\t$0",
+      "});"
+    ],
+    "description": "describe(\"name\", () => { ... })"
+  },
+  "it": {
+    "prefix": "it",
+    "body": [
+      "it(\"${1:does something}\", () => {",
+      "\t$0",
+      "});"
+    ],
+    "description": "it(\"...\", () => { ... })"
+  },
+  "it async": {
+    "prefix": "ita",
+    "body": [
+      "it(\"${1:does something}\", async () => {",
+      "\t$0",
+      "});"
+    ],
+    "description": "it(\"...\", async () => { ... })"
+  },
+  "expect": {
+    "prefix": "exp",
+    "body": "expect(${1:actual}).${2:toBe}(${3:expected});",
+    "description": "expect(actual).toBe(expected)"
+  },
+  "throw new Error": {
+    "prefix": "tne",
+    "body": "throw new Error(${1:\"${2:message}\"});",
+    "description": "throw new Error(\"...\")"
+  },
+  "async function": {
+    "prefix": "afn",
+    "body": [
+      "async function ${1:name}(${2:params}): Promise<${3:void}> {",
+      "\t$0",
+      "}"
+    ],
+    "description": "async function name(): Promise<T> { ... }"
+  },
+  "export type": {
+    "prefix": "ext",
+    "body": [
+      "export type ${1:Name} = {",
+      "\t$0",
+      "};"
+    ],
+    "description": "export type Name = { ... }"
+  },
+  "component with Props": {
+    "prefix": "rfp",
+    "body": [
+      "type Props = {",
+      "\t$2",
+      "};",
+      "",
+      "export function ${1:${TM_FILENAME_BASE}}({ $3 }: Props) {",
+      "\treturn (",
+      "\t\t$0",
+      "\t);",
+      "}"
+    ],
+    "description": "type Props + export function Component"
+  }
+}

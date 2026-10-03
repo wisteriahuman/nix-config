@@ -4,7 +4,7 @@ return {
     config = function()
       require("mason").setup()
       local registry = require("mason-registry")
-      local tools = { "stylua", "biome", "ruff" }
+      local tools = { "stylua", "biome", "ruff", "goimports", "shfmt", "shellcheck", "hadolint", "actionlint" }
       for _, tool in ipairs(tools) do
         if not registry.is_installed(tool) then
           registry.get_package(tool):install()
@@ -21,7 +21,8 @@ return {
           "lua_ls",
           "gopls",
           "pyright",
-          "ts_ls",
+          "vtsls",
+          "eslint",
           "html",
           "cssls",
           "jsonls",
@@ -30,13 +31,19 @@ return {
           "dockerls",
           "docker_compose_language_service",
           "sqls",
+          "bashls",
+          "yamlls",
+          "taplo",
+          "marksman",
         },
+        -- vtsls に置き換えたので、mason に残っている ts_ls は起動させない
+        automatic_enable = { exclude = { "ts_ls" } },
       })
     end,
   },
   {
     "neovim/nvim-lspconfig",
-    dependencies = { "williamboman/mason-lspconfig.nvim" },
+    dependencies = { "williamboman/mason-lspconfig.nvim", "b0o/SchemaStore.nvim" },
     config = function()
       -- サーバが diagnostics: null を送ると vim.NIL のまま届き
       -- runtime の handle_diagnostics が #diagnostics で落ちるため空配列に正規化する
@@ -74,6 +81,73 @@ return {
             diagnostics = {
               globals = { "vim" },
             },
+          },
+        },
+      })
+
+      vim.lsp.config("gopls", {
+        settings = {
+          gopls = {
+            staticcheck = true,
+            usePlaceholders = true,
+            analyses = {
+              nilness = true,
+              unusedparams = true,
+              unusedwrite = true,
+              useany = true,
+            },
+            hints = {
+              assignVariableTypes = true,
+              compositeLiteralFields = true,
+              constantValues = true,
+              parameterNames = true,
+              rangeVariableTypes = true,
+            },
+          },
+        },
+      })
+
+      local ts_settings = {
+        updateImportsOnFileMove = { enabled = "always" },
+        suggest = { completeFunctionCalls = true },
+        inlayHints = {
+          parameterNames = { enabled = "literals" },
+          variableTypes = { enabled = true, suppressWhenTypeMatchesName = true },
+          functionLikeReturnTypes = { enabled = true },
+          enumMemberValues = { enabled = true },
+        },
+      }
+      vim.lsp.config("vtsls", {
+        settings = {
+          vtsls = {
+            autoUseWorkspaceTsdk = true,
+            experimental = { completion = { enableServerSideFuzzyMatch = true } },
+          },
+          typescript = ts_settings,
+          javascript = ts_settings,
+        },
+      })
+
+      vim.lsp.config("bashls", {
+        filetypes = { "sh", "bash", "zsh" },
+      })
+
+      vim.lsp.config("yamlls", {
+        settings = {
+          redhat = { telemetry = { enabled = false } },
+          yaml = {
+            -- 組み込みのスキーマ取得は切り、SchemaStore.nvim の一覧を使う
+            schemaStore = { enable = false, url = "" },
+            schemas = require("schemastore").yaml.schemas(),
+          },
+        },
+      })
+
+      vim.lsp.config("jsonls", {
+        settings = {
+          json = {
+            schemas = require("schemastore").json.schemas(),
+            validate = { enable = true },
           },
         },
       })
@@ -150,10 +224,20 @@ return {
           map("grt", fzf("lsp_typedefs"), "型定義へ")
           map("gO", fzf("lsp_document_symbols"), "ファイル内シンボル")
           map("<leader>rn", vim.lsp.buf.rename, "リネーム")
-          map("<leader>ca", vim.lsp.buf.code_action, "コードアクション")
+
+          local function action_map(lhs)
+            vim.keymap.set(
+              { "n", "x" },
+              lhs,
+              fzf("lsp_code_actions"),
+              { buffer = args.buf, silent = true, desc = "コードアクション" }
+            )
+          end
+          action_map("gra")
+          action_map("<leader>ca")
+          action_map("<leader>la")
 
           map("<leader>lr", vim.lsp.buf.rename, "リネーム")
-          map("<leader>la", vim.lsp.buf.code_action, "コードアクション")
           map("<leader>lf", fzf("lsp_finder"), "定義・参照・実装をまとめて表示")
           map("<leader>ls", fzf("lsp_document_symbols"), "ファイル内シンボル")
           map("<leader>lS", fzf("lsp_live_workspace_symbols"), "プロジェクト全体のシンボル")
@@ -242,7 +326,9 @@ return {
       vim.lsp.enable("lua_ls")
       vim.lsp.enable("gopls")
       vim.lsp.enable("pyright")
-      vim.lsp.enable("ts_ls")
+      vim.lsp.enable("vtsls")
+      vim.lsp.enable("biome")
+      vim.lsp.enable("eslint")
       vim.lsp.enable("html")
       vim.lsp.enable("cssls")
       vim.lsp.enable("jsonls")
@@ -256,6 +342,10 @@ return {
       vim.lsp.enable("docker_compose_language_service")
       vim.lsp.enable("mermaid_ls")
       vim.lsp.enable("sqls")
+      vim.lsp.enable("bashls")
+      vim.lsp.enable("yamlls")
+      vim.lsp.enable("taplo")
+      vim.lsp.enable("marksman")
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "swift",

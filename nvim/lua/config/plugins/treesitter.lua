@@ -27,6 +27,17 @@ return {
         "typespec",
         "mermaid",
         "sql",
+        "ruby",
+        "embedded_template", -- erb
+        "rust",
+        "swift",
+        "astro",
+        "yaml",
+        "toml",
+        "dockerfile",
+        "nix",
+        "gomod",
+        "gosum",
       }
 
       local installed = require("nvim-treesitter.config").get_installed("parsers")
@@ -44,8 +55,14 @@ return {
         require("nvim-treesitter").install(missing)
       end
 
+      -- パーサ名とファイルタイプ名は一致しない(tsx→typescriptreact, bash→sh など)
+      local filetypes = {}
+      for _, p in ipairs(parsers) do
+        vim.list_extend(filetypes, vim.treesitter.language.get_filetypes(p))
+      end
+
       vim.api.nvim_create_autocmd("FileType", {
-        pattern = parsers,
+        pattern = filetypes,
         callback = function(ev)
           pcall(vim.treesitter.start, ev.buf)
           vim.bo[ev.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
@@ -53,7 +70,7 @@ return {
       })
 
       vim.api.nvim_create_autocmd("FileType", {
-        pattern = parsers,
+        pattern = filetypes,
         callback = function()
           vim.wo.foldexpr = "v:lua.vim.treesitter.foldexpr()"
           vim.wo.foldmethod = "expr"

@@ -26,6 +26,7 @@ return {
             markdown = { "slash", "lsp", "path", "snippets", "buffer" },
           },
           providers = {
+            snippets = { opts = { extended_filetypes = { ruby = { "rails" } } } },
             slash = { name = "Slash", module = "config.slash", score_offset = 100 },
             dbee = { name = "cmp-dbee", module = "blink.compat.source" },
           },
