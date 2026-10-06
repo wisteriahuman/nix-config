@@ -17,7 +17,7 @@ indent_style = tab
 [{go.mod,go.sum}]
 indent_style = tab
 
-[*.{c,cpp}]
+[*.{c,h,cpp}]
 indent_style = space
 indent_size = 4
 

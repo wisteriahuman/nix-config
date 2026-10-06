@@ -115,6 +115,46 @@ return {
         },
       })
 
+      -- nix の clang-tools にも clangd が入り PATH で先に来るが、macOS では SDK のヘッダ
+      -- (stdio.h / pthread.h など)を見つけられない。Apple 版があればそちらに固定する
+      local clangd = vim.uv.fs_stat("/usr/bin/clangd") and "/usr/bin/clangd" or "clangd"
+      local clang = require("config.clang")
+      clang.setup()
+      vim.lsp.config("clangd", {
+        cmd = {
+          clangd,
+          "--background-index",
+          "--clang-tidy",
+          "--header-insertion=iwyu",
+          "--completion-style=detailed",
+          "--function-arg-placeholders=1",
+        },
+        filetypes = { "c", "cpp" },
+        root_dir = function(bufnr, on_dir)
+          -- メモリ上限で止めたファイルには付け直さない
+          if clang.is_blocked(bufnr) then
+            return
+          end
+          -- 既定の .clang-tidy / .clang-format は目印にしない。~/ に置いた既定の設定が拾われ、
+          -- どのファイルでもホームがルートになってしまう
+          on_dir(
+            vim.fs.root(bufnr, { ".clangd", "compile_commands.json", "compile_flags.txt", "configure.ac", ".git" })
+          )
+        end,
+        on_exit = clang.on_exit,
+        handlers = { ["textDocument/clangd.fileStatus"] = clang.on_file_status },
+        init_options = {
+          clangdFileStatus = true,
+          -- compile_commands.json も compile_flags.txt も無いファイルに使うフラグ
+          fallbackFlags = clang.fallback_flags,
+        },
+      })
+
+      -- 既定では c / cpp にも付き、clangd と診断や補完が二重になる
+      vim.lsp.config("sourcekit", {
+        filetypes = { "swift", "objc", "objcpp" },
+      })
+
       vim.lsp.config("ruby_lsp", {
         cmd = { "ruby-lsp" },
         filetypes = { "ruby", "eruby" },
@@ -189,6 +229,11 @@ return {
           map("<leader>lS", fzf("lsp_live_workspace_symbols"), "プロジェクト全体のシンボル")
           map("<leader>li", fzf("lsp_incoming_calls"), "この関数を呼んでいる箇所")
           map("<leader>lo", fzf("lsp_outgoing_calls"), "この関数が呼んでいる関数")
+
+          local client = vim.lsp.get_client_by_id(args.data.client_id)
+          if client and client.name == "clangd" then
+            map("<leader>lH", "<cmd>LspClangdSwitchSourceHeader<CR>", "ヘッダとソースを切り替え")
+          end
         end,
       })
 
@@ -285,6 +330,7 @@ return {
       vim.lsp.enable("marksman")
       vim.lsp.enable("mermaid_lsp")
       vim.lsp.enable("nixd")
+      vim.lsp.enable("clangd")
 
       vim.api.nvim_create_autocmd("FileType", {
         pattern = "swift",

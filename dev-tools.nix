@@ -21,6 +21,9 @@
 
     # リンタ・フォーマッタ
     biome
+    # clang-format / clang-tidy 用。同梱の clangd は macOS の SDK を見つけられないので
+    # mac では使わず、nvim 側で /usr/bin/clangd に固定している
+    clang-tools
     ruff
     stylua
     shellcheck

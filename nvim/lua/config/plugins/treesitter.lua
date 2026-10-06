@@ -38,6 +38,8 @@ return {
         "nix",
         "gomod",
         "gosum",
+        "c",
+        "cpp",
       }
 
       local installed = require("nvim-treesitter.config").get_installed("parsers")

@@ -66,6 +66,10 @@ in
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/zsh/.zshenv";
     ".editorconfig".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/editorconfig/.editorconfig";
+    ".clang-format".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/clang/.clang-format";
+    ".clang-tidy".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/clang/.clang-tidy";
     ".local/bin/docker".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/docker";
     ".local/bin/nix-sync".source =

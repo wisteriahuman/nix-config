@@ -1,0 +1,2 @@
+# clangd 経由で効くチェック。clang-analyzer-* は clangd では動かないので nvim-lint 側で走らせる
+Checks: 'bugprone-*'

@@ -8,6 +8,8 @@ opt.expandtab = true
 opt.smartindent = true
 -- 同梱の ftplugin/markdown.vim が shiftwidth=4 を強制するのを止める
 vim.g.markdown_recommended_style = 0
+-- .h は既定だと cpp になる。C しか書かないので c として開く
+vim.g.c_syntax_for_h = true
 opt.clipboard = "unnamedplus"
 opt.list = true
 opt.listchars = { tab = "»-", trail = "-", eol = "↲" }

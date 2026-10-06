@@ -20,6 +20,13 @@ return {
         return { prettier and 'prettier' or 'biome' }
       end
 
+      -- ~/.clang-format は gq 用の既定なので数えない。数えると、設定を持たない他人の
+      -- リポジトリでも保存のたびにファイル全体が整形される
+      local function has_project_clang_format(bufnr)
+        local root = vim.fs.root(bufnr, { '.clang-format', '_clang-format' })
+        return root ~= nil and root ~= vim.fs.normalize('~')
+      end
+
       require('conform').setup({
         formatters_by_ft = {
           lua = { 'stylua' },
@@ -33,11 +40,16 @@ return {
           css = { 'biome' },
           sh = { 'shfmt' },
           bash = { 'shfmt' },
+          c = { 'clang-format' },
+          cpp = { 'clang-format' },
         },
-        format_on_save = {
-          timeout_ms = 500,
-          lsp_format = 'fallback',
-        },
+        format_on_save = function(bufnr)
+          local ft = vim.bo[bufnr].filetype
+          if (ft == 'c' or ft == 'cpp') and not has_project_clang_format(bufnr) then
+            return
+          end
+          return { timeout_ms = 500, lsp_format = 'fallback' }
+        end,
       })
 
       vim.keymap.set('n', 'gq', function()
