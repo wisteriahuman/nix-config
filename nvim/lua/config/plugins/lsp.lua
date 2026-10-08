@@ -209,7 +209,11 @@ return {
           map("gri", fzf("lsp_implementations"), "実装一覧")
           map("grt", fzf("lsp_typedefs"), "型定義へ")
           map("gO", fzf("lsp_document_symbols"), "ファイル内シンボル")
-          map("<leader>rn", vim.lsp.buf.rename, "リネーム")
+          local rename = function()
+            require("config.rename").rename()
+          end
+          map("grn", rename, "リネーム")
+          map("<leader>rn", rename, "リネーム")
 
           local function action_map(lhs)
             vim.keymap.set(
@@ -223,7 +227,7 @@ return {
           action_map("<leader>ca")
           action_map("<leader>la")
 
-          map("<leader>lr", vim.lsp.buf.rename, "リネーム")
+          map("<leader>lr", rename, "リネーム")
           map("<leader>lf", fzf("lsp_finder"), "定義・参照・実装をまとめて表示")
           map("<leader>ls", fzf("lsp_document_symbols"), "ファイル内シンボル")
           map("<leader>lS", fzf("lsp_live_workspace_symbols"), "プロジェクト全体のシンボル")
