@@ -18,8 +18,11 @@ return {
       })
 
       local map = vim.keymap.set
-      map({ "n", "v" }, "<leader>tj", "<cmd>Translate JA<CR>", { desc = "日本語に翻訳" })
-      map({ "n", "v" }, "<leader>te", "<cmd>Translate EN<CR>", { desc = "英語に翻訳" })
+      map("n", "<leader>tj", "<cmd>Translate JA<CR>", { desc = "日本語に翻訳" })
+      map("n", "<leader>te", "<cmd>Translate EN<CR>", { desc = "英語に翻訳" })
+      -- <cmd> だと移動なしの V で選択範囲を取り損ねる
+      map("x", "<leader>tj", ":Translate JA<CR>", { desc = "日本語に翻訳" })
+      map("x", "<leader>te", ":Translate EN<CR>", { desc = "英語に翻訳" })
     end,
   },
 }
