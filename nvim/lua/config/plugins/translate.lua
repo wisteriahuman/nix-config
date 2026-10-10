@@ -10,6 +10,10 @@ return {
         },
         preset = {
           output = {
+            floating = {
+              -- ホバー (zindex=50) より手前に翻訳結果を表示する。
+              zindex = 80,
+            },
             split = {
               append = true,
             },
