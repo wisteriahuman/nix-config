@@ -1,4 +1,4 @@
-(( ${+commands[direnv]} )) && emulate zsh -c "$(direnv export zsh)"
+((${+commands[direnv]})) && emulate zsh -c "$(direnv export zsh)"
 
 # Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.config/zsh/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
@@ -19,6 +19,7 @@ eval "$(fzf --zsh)"
 export FZF_DEFAULT_OPTS='--highlight-line'
 
 export PATH="$HOME/.local/bin:$HOME/go/bin:$PATH"
+export PATH="$HOME/.rive/bin:$PATH"
 
 alias ..='cd ..'
 alias ...='cd ../..'
@@ -37,10 +38,10 @@ eval "$(zoxide init zsh)"
 alias grep='rg'
 
 eval "$(mise activate zsh)"
-(( ${+commands[direnv]} )) && emulate zsh -c "$(direnv hook zsh)"
+((${+commands[direnv]})) && emulate zsh -c "$(direnv hook zsh)"
 
 for f in ~/.config/zsh/hidden/*.zsh(N); do
-    source "$f"
+  source "$f"
 done
 
 # To customize prompt, run `p10k configure` or edit ~/.config/zsh/.p10k.zsh.
@@ -49,7 +50,7 @@ done
 # pnpm
 export PNPM_HOME="/Users/wisteria/Library/pnpm"
 case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
+*":$PNPM_HOME:"*) ;;
+*) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end

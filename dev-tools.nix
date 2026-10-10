@@ -1,5 +1,28 @@
 { pkgs, ... }:
 
+let
+  # 固定済み nixpkgs にまだないため、公式リリースからビルドする。
+  shuck = pkgs.rustPlatform.buildRustPackage rec {
+    pname = "shuck";
+    version = "0.2.3";
+
+    src = pkgs.fetchurl {
+      url = "https://github.com/ewhauser/shuck/releases/download/v${version}/source.tar.gz";
+      hash = "sha256-WlO0nis/m/4Q7XMC/ZykiiSqgedPo9Vmn5RJjXS0JfA=";
+    };
+    cargoHash = "sha256-XoXnOE9jyhm6kJ0693CJ8PE4/1Sn+fyv0nLs2GG+J6M=";
+    cargoBuildFlags = [ "--package" "shuck-cli" ];
+    cargoTestFlags = [ "--package" "shuck-cli" ];
+
+    meta = {
+      description = "Shell linter and language server with zsh support";
+      homepage = "https://github.com/ewhauser/shuck";
+      license = pkgs.lib.licenses.mit;
+      mainProgram = "shuck";
+    };
+  };
+in
+
 {
   # Neovim が使う LSP・リンタ・フォーマッタ。
   # gopls / goimports / ruby-lsp / rust-analyzer は言語処理系と版を合わせる必要があるので
@@ -12,6 +35,7 @@
     astro-language-server
     pyright
     bash-language-server
+    shuck
     yaml-language-server
     taplo
     marksman

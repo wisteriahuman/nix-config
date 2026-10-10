@@ -87,7 +87,16 @@ return {
       })
 
       vim.lsp.config("bashls", {
-        filetypes = { "sh", "bash", "zsh" },
+        filetypes = { "sh", "bash" },
+      })
+
+      vim.lsp.config("shuck", {
+        filetypes = { "zsh" },
+        on_init = function(client)
+          -- formatter は experimental のため、保存時の LSP fallback からは使わない。
+          client.server_capabilities.documentFormattingProvider = false
+          client.server_capabilities.documentRangeFormattingProvider = false
+        end,
       })
 
       vim.lsp.config("mermaid_lsp", {
@@ -329,6 +338,7 @@ return {
       vim.lsp.enable("dockerls")
       vim.lsp.enable("docker_compose_language_service")
       vim.lsp.enable("bashls")
+      vim.lsp.enable("shuck")
       vim.lsp.enable("yamlls")
       vim.lsp.enable("taplo")
       vim.lsp.enable("marksman")
