@@ -50,6 +50,7 @@ local SHAPE_BUFFERLINE = {
 local function apply_base16(palette)
   require("mini.base16").setup({ use_cterm = true, palette = palette })
   vim.api.nvim_set_hl(0, "@lsp.type.variable", {})
+  vim.api.nvim_set_hl(0, "@variable.parameter", { italic = true })
 end
 
 local THEMES = {
