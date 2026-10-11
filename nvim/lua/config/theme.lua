@@ -46,6 +46,12 @@ local SHAPE_BUFFERLINE = {
   underline = { separator_style = "thin", indicator = { style = "underline" } },
 }
 
+-- mini.base16 は @lsp.type.variable を前景色で塗るため、gopls が変数扱いする nil / true が無色になる
+local function apply_base16(palette)
+  require("mini.base16").setup({ use_cterm = true, palette = palette })
+  vim.api.nvim_set_hl(0, "@lsp.type.variable", {})
+end
+
 local THEMES = {
   tokyonight = {
     tags = { "dark", "classic" },
@@ -103,14 +109,11 @@ local THEMES = {
     shape = "round",
     smear_color = "#d9a4ff",
     apply = function()
-      require("mini.base16").setup({
-        use_cterm = true,
-        palette = {
-          base00 = "#221a2c", base01 = "#2c2138", base02 = "#362a44", base03 = "#9686a8",
-          base04 = "#b8a4c4", base05 = "#f5e8f7", base06 = "#fbf3fc", base07 = "#fff9ff",
-          base08 = "#ff6f9f", base09 = "#ffab7a", base0A = "#ffd889", base0B = "#8de8b8",
-          base0C = "#7fe3ea", base0D = "#8fc4ff", base0E = "#d9a4ff", base0F = "#c98f6a",
-        },
+      apply_base16({
+        base00 = "#221a2c", base01 = "#2c2138", base02 = "#362a44", base03 = "#9686a8",
+        base04 = "#b8a4c4", base05 = "#f5e8f7", base06 = "#fbf3fc", base07 = "#fff9ff",
+        base08 = "#ff6f9f", base09 = "#ffab7a", base0A = "#ffd889", base0B = "#8de8b8",
+        base0C = "#7fe3ea", base0D = "#8fc4ff", base0E = "#d9a4ff", base0F = "#c98f6a",
       })
     end,
   },
@@ -119,14 +122,11 @@ local THEMES = {
     shape = "round",
     smear_color = "#832eb8",
     apply = function()
-      require("mini.base16").setup({
-        use_cterm = true,
-        palette = {
-          base00 = "#fff5fa", base01 = "#ffe9f3", base02 = "#ffd9ec", base03 = "#81567a",
-          base04 = "#7a4f72", base05 = "#4a2b45", base06 = "#2e1a2b", base07 = "#200f1e",
-          base08 = "#c3225c", base09 = "#ae4f19", base0A = "#985c16", base0B = "#1e764c",
-          base0C = "#197676", base0D = "#2a68c6", base0E = "#832eb8", base0F = "#8a5a3a",
-        },
+      apply_base16({
+        base00 = "#fff5fa", base01 = "#ffe9f3", base02 = "#ffd9ec", base03 = "#81567a",
+        base04 = "#7a4f72", base05 = "#4a2b45", base06 = "#2e1a2b", base07 = "#200f1e",
+        base08 = "#c3225c", base09 = "#ae4f19", base0A = "#985c16", base0B = "#1e764c",
+        base0C = "#197676", base0D = "#2a68c6", base0E = "#832eb8", base0F = "#8a5a3a",
       })
     end,
   },
