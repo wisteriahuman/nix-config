@@ -1,3 +1,7 @@
 [tools]
 "go:golang.org/x/tools/gopls" = "latest"
 "go:golang.org/x/tools/cmd/goimports" = "latest"
+
+[settings]
+# プロジェクトの .node-version などがあれば、その版に自動で切り替える
+idiomatic_version_file_enable_tools = ["node", "ruby", "go", "bun"]
