@@ -7,7 +7,7 @@
 
   home.stateVersion = "25.05";
 
-  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick ]) ++ [
+  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick coreutils-prefixed ]) ++ [
     inputs.mermaid-lsp.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
