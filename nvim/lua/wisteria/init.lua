@@ -94,9 +94,10 @@ local function find_dashboard()
   end
 end
 
+-- 透過テーマでは Normal に背景がないので、テーマ側が持つ不透明時の色を使う
 local function normal_bg()
   local hl = vim.api.nvim_get_hl(0, { name = "Normal", link = false })
-  return hl.bg and string.format("#%06x", hl.bg) or "#000000"
+  return hl.bg and string.format("#%06x", hl.bg) or vim.g.theme_bg or "#000000"
 end
 
 local LOGO_CHARS = {}

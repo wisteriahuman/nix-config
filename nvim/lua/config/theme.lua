@@ -46,11 +46,25 @@ local SHAPE_BUFFERLINE = {
   underline = { separator_style = "thin", indicator = { style = "underline" } },
 }
 
+-- mini.base16 には透過オプションがなく、本文とガターの背景を常に塗る
+local TRANSPARENT_GROUPS = {
+  "Normal", "NormalNC", "NormalFloat", "SignColumn", "FoldColumn",
+  "LineNr", "LineNrAbove", "LineNrBelow",
+  "CursorLineNr", "CursorLineSign", "CursorLineFold",
+  "GitSignsAdd", "GitSignsChange", "GitSignsDelete", "GitSignsUntracked",
+  "MiniDiffSignAdd", "MiniDiffSignChange", "MiniDiffSignDelete",
+}
+
 -- mini.base16 は @lsp.type.variable を前景色で塗るため、gopls が変数扱いする nil / true が無色になる
 local function apply_base16(palette)
   require("mini.base16").setup({ use_cterm = true, palette = palette })
   vim.api.nvim_set_hl(0, "@lsp.type.variable", {})
   vim.api.nvim_set_hl(0, "@variable.parameter", { fg = palette.base09 })
+  for _, group in ipairs(TRANSPARENT_GROUPS) do
+    local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
+    hl.bg, hl.ctermbg = nil, nil
+    vim.api.nvim_set_hl(0, group, hl)
+  end
 end
 
 local THEMES = {
@@ -58,6 +72,7 @@ local THEMES = {
     tags = { "dark", "classic" },
     shape = "tri",
     smear_color = "#bb9af7",
+    bg = "#222436",
     apply = function()
       require("tokyonight").setup({
         transparent = true,
@@ -73,6 +88,7 @@ local THEMES = {
     tags = { "dark", "kawaii", "classic" },
     shape = "round",
     smear_color = "#cba6f7",
+    bg = "#1e1e2e",
     apply = function()
       require("catppuccin").setup({ flavour = "mocha", transparent_background = true })
       vim.cmd.colorscheme("catppuccin")
@@ -82,6 +98,7 @@ local THEMES = {
     tags = { "light", "kawaii", "classic" },
     shape = "round",
     smear_color = "#8839ef",
+    bg = "#eff1f5",
     apply = function()
       require("catppuccin").setup({ flavour = "latte", transparent_background = true })
       vim.cmd.colorscheme("catppuccin")
@@ -91,6 +108,7 @@ local THEMES = {
     tags = { "dark", "elegant", "classic" },
     shape = "underline",
     smear_color = "#c4a7e7",
+    bg = "#191724",
     apply = function()
       require("rose-pine").setup({ variant = "main", styles = { transparency = true } })
       vim.cmd.colorscheme("rose-pine")
@@ -100,6 +118,7 @@ local THEMES = {
     tags = { "light", "elegant", "classic" },
     shape = "underline",
     smear_color = "#907aa9",
+    bg = "#faf4ed",
     apply = function()
       require("rose-pine").setup({ variant = "dawn", styles = { transparency = true } })
       vim.cmd.colorscheme("rose-pine")
@@ -109,6 +128,7 @@ local THEMES = {
     tags = { "dark", "kawaii", "buzz", "original" },
     shape = "round",
     smear_color = "#d9a4ff",
+    bg = "#221a2c",
     apply = function()
       apply_base16({
         base00 = "#221a2c", base01 = "#2c2138", base02 = "#362a44", base03 = "#9686a8",
@@ -123,6 +143,7 @@ local THEMES = {
     tags = { "light", "kawaii", "buzz", "original" },
     shape = "round",
     smear_color = "#832eb8",
+    bg = "#fff5fa",
     apply = function()
       apply_base16({
         base00 = "#fff5fa", base01 = "#ffe9f3", base02 = "#ffd9ec", base03 = "#81567a",
@@ -241,6 +262,7 @@ function M.apply(id)
     vim.notify('Theme: unknown theme id "' .. id .. '"', vim.log.levels.ERROR)
     return
   end
+  vim.g.theme_bg = theme.bg
   theme.apply()
   set_smear(theme.smear_color)
   set_dashboard()
@@ -388,6 +410,7 @@ function M.setup()
     callback = function()
       local disk_id = read_current()
       if disk_id and disk_id ~= last_applied and THEMES[disk_id] then
+        vim.g.theme_bg = THEMES[disk_id].bg
         THEMES[disk_id].apply()
         last_applied = disk_id
       end
