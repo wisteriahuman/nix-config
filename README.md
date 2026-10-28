@@ -56,6 +56,34 @@ home-manager switch --flake ~/Projects/nix-config#wisteria@linux-minimal-aarch64
 nix-sync
 ```
 
+### Mac の ken（Zen）を初めて有効にする
+
+Apple Silicon の `mac-full` で有効。`~/Projects/ken` の flake が固定する Zen を使い、設定は同リポジトリへ直接リンクする。
+
+初回は Zen をすべて閉じ、プロファイル全体と実験用の Tridactyl 設定を退避してから同期する。先に `~/Projects/ken/docs/operations.md` の版の比較を行う。
+
+```sh
+ken_backup=$(mktemp -d "$HOME/ken-migration.XXXXXX")
+if [ -n "$ken_backup" ] && cp -cR "$HOME/Library/Application Support/zen" "$ken_backup/zen"; then
+  if [ -e "$HOME/.config/tridactyl/tridactylrc" ] || [ -L "$HOME/.config/tridactyl/tridactylrc" ]; then
+    mv "$HOME/.config/tridactyl/tridactylrc" "$ken_backup/tridactylrc"
+  fi
+  if [ -e "$HOME/Library/Application Support/Mozilla/NativeMessagingHosts/tridactyl.json" ] || [ -L "$HOME/Library/Application Support/Mozilla/NativeMessagingHosts/tridactyl.json" ]; then
+    mv "$HOME/Library/Application Support/Mozilla/NativeMessagingHosts/tridactyl.json" "$ken_backup/tridactyl.json"
+  fi
+  echo "退避先: $ken_backup"
+  nix-sync
+else
+  echo "退避に失敗したため同期を中止しました"
+fi
+```
+
+既存の `user.js` や実ディレクトリの `chrome/{utils,JS,CSS,resources}` がある場合も運用手順に従って退避する。`zen-themes.css` は残す。
+
+同期後は `~/Applications/Home Manager Apps/Zen.app` を起動する。`/Applications/Zen.app` と同時に起動しない。
+
+ken のページ側 actor や Nix の固定を更新したときは、ken 側で `bin/ken-check` を通し、nix-config 側で `nix flake update ken` を行ってから `nix-sync`。リンクされた JS・CSS だけの変更は Zen の再起動で反映される。
+
 ## 役割(role)の一覧
 
 - `mac-full` — メインの開発機（Mac）。wezterm、mise(フル)、`bin/docker`など一式。`aarch64-darwin` / `x86_64-darwin`

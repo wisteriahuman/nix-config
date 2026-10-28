@@ -1,5 +1,21 @@
 {
   "nodes": {
+    "fx-autoconfig": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784800794,
+        "narHash": "sha256-bpOt/fD8zZiKbb2sRQHl7eobuGklY9c2QI/jmYi9WE4=",
+        "owner": "MrOtherGuy",
+        "repo": "fx-autoconfig",
+        "rev": "dfdab5684faffc112b76ccb1d8cab7f75da0102c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "MrOtherGuy",
+        "repo": "fx-autoconfig",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -18,6 +34,55 @@
         "owner": "nix-community",
         "repo": "home-manager",
         "type": "github"
+      }
+    },
+    "home-manager_2": {
+      "inputs": {
+        "nixpkgs": [
+          "ken",
+          "zen-browser",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1792098797,
+        "narHash": "sha256-u4DIIZgznEGzByxXrxWCXK19VcMtTBmi/M9gZ7Jk9bM=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "640725978b99076e18e069f6e7d2959124584f8f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "type": "github"
+      }
+    },
+    "ken": {
+      "inputs": {
+        "fx-autoconfig": "fx-autoconfig",
+        "home-manager": [
+          "home-manager"
+        ],
+        "nixpkgs": [
+          "ken",
+          "zen-browser",
+          "nixpkgs"
+        ],
+        "zen-browser": "zen-browser"
+      },
+      "locked": {
+        "lastModified": 1793174028,
+        "narHash": "sha256-1o+cAUJEqUod6hzccV3jrJWegrDR37Wa146Pv/8XHOo=",
+        "ref": "refs/heads/main",
+        "rev": "2a7d967882a1408a7e9cd9f7277dfa7b63520f9d",
+        "revCount": 36,
+        "type": "git",
+        "url": "file:///Users/wisteria/Projects/ken"
+      },
+      "original": {
+        "type": "git",
+        "url": "file:///Users/wisteria/Projects/ken"
       }
     },
     "mermaid-lsp": {
@@ -42,6 +107,22 @@
     },
     "nixpkgs": {
       "locked": {
+        "lastModified": 1790689126,
+        "narHash": "sha256-ilerN1WLSvF+HMjziC/Wv99J5y02maDH+6hZPwsORKg=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "b4fd65b198c599cbe814fcb9f42d25d021595ec9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "nixpkgs_2": {
+      "locked": {
         "lastModified": 1791734076,
         "narHash": "sha256-i5qk1kLiit98rRbh1AXmWBNT9QXC/y4l5Wk/u5EdpDQ=",
         "owner": "nixos",
@@ -59,8 +140,28 @@
     "root": {
       "inputs": {
         "home-manager": "home-manager",
+        "ken": "ken",
         "mermaid-lsp": "mermaid-lsp",
+        "nixpkgs": "nixpkgs_2"
+      }
+    },
+    "zen-browser": {
+      "inputs": {
+        "home-manager": "home-manager_2",
         "nixpkgs": "nixpkgs"
+      },
+      "locked": {
+        "lastModified": 1793063583,
+        "narHash": "sha256-avFKNlbqAAdwJtmB5gbB5W/1fQz0ftIH4ET6FQcpXu0=",
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake",
+        "rev": "cfb35e5835c4ca6faa811ba38a94f755ecfcb393",
+        "type": "github"
+      },
+      "original": {
+        "owner": "0xc000022070",
+        "repo": "zen-browser-flake",
+        "type": "github"
       }
     }
   },

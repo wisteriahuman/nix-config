@@ -11,6 +11,10 @@
       url = "github:wisteriahuman/mermaid-lsp";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    ken = {
+      url = "git+file:///Users/wisteria/Projects/ken";
+      inputs.home-manager.follows = "home-manager";
+    };
   };
 
   outputs = { self, nixpkgs, home-manager, ... }@inputs:
