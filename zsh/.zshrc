@@ -37,6 +37,8 @@ eval "$(zoxide init zsh)"
 
 alias grep='rg'
 
+((${+commands[gshuf]})) && alias shuf='gshuf'
+
 eval "$(mise activate zsh)"
 ((${+commands[direnv]})) && emulate zsh -c "$(direnv hook zsh)"
 
