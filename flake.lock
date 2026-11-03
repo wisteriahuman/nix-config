@@ -72,11 +72,11 @@
         "zen-browser": "zen-browser"
       },
       "locked": {
-        "lastModified": 1793632546,
-        "narHash": "sha256-zjV07WtY/qc2QVm7S8nzLmADhV4dDvPye0WYPcCRaro=",
+        "lastModified": 1793716993,
+        "narHash": "sha256-2IC7E8tk397rqfcH6D4RzshQvtAw+P5ecXGu/hD3PeA=",
         "ref": "refs/heads/main",
-        "rev": "5ad334668c3a596a50ef5801f61b33322ccd492d",
-        "revCount": 142,
+        "rev": "084ca34b813aecca0228c4e522c29d8f49b6a2a2",
+        "revCount": 143,
         "type": "git",
         "url": "file:///Users/wisteria/Projects/ken"
       },
