@@ -1,0 +1,145 @@
+#!/usr/bin/env zsh
+# remote-docker-ports: リモートの Docker（docker context が ssh://）で動いているコンテナの
+# 公開 TCP ポートを、手元の 127.0.0.1 の同じ番号へ ssh で転送する。
+#
+# bin/docker（ラッパー）が転送するのは `docker compose up` で起動したサービスだけ。
+# Supabase CLI のように Docker API を直接使う道具が起動したコンテナは、ラッパーを通らないので
+# ポートが手元に来ない。このコマンドはその穴だけを埋める。docker 本体の挙動は変えない。
+#
+# 使い方:
+#   remote-docker-ports [--name 文字列]   起動中コンテナの公開ポートを転送（既存の転送は張り直す）
+#   remote-docker-ports list              今の転送を表示
+#   remote-docker-ports stop              転送を止める
+
+_real_docker() {
+  local candidate
+  for candidate in /opt/homebrew/bin/docker /usr/local/bin/docker /usr/bin/docker; do
+    if [[ -x "$candidate" ]]; then
+      "$candidate" "$@"
+      return $?
+    fi
+  done
+  print -u2 -- "remote-docker-ports: docker が見つからない"
+  return 127
+}
+
+_remote_host() {
+  local ctx endpoint
+  ctx=$(_real_docker context show 2>/dev/null)
+  endpoint=$(_real_docker context inspect "$ctx" --format '{{.Endpoints.docker.Host}}' 2>/dev/null)
+  [[ "$endpoint" == ssh://* ]] || return 1
+  print -r -- "${endpoint#ssh://}"
+}
+
+# `docker ps --format '{{.Ports}}'` の各行から、ホストに公開された TCP ポート番号を重複なく取り出す。
+# 例: "0.0.0.0:54322->5432/tcp, [::]:54322->5432/tcp, 8000/tcp" → 54322
+_published_tcp_ports() {
+  local line item port
+  local -A seen
+  while IFS= read -r line; do
+    for item in ${(s:, :)line}; do
+      [[ "$item" == *"->"*"/tcp" ]] || continue
+      port="${${item%%->*}##*:}"
+      [[ "$port" == <-> ]] || continue          # 範囲指定（54320-54329）や空は対象外
+      (( ${+seen[$port]} )) && continue
+      seen[$port]=1
+      print -r -- "$port"
+    done
+  done
+}
+
+_local_port_busy() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
+}
+
+_state_file() {
+  local d="$HOME/.cache/remote-docker-ports"
+  mkdir -p "$d"
+  print -r -- "$d/${1//[^a-zA-Z0-9@._-]/_}"
+}
+
+_stop() {
+  local host=$1 state pid
+  state=$(_state_file "$host")
+  [[ -f "$state.pid" ]] || return 0
+  pid=$(<"$state.pid")
+  if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null
+  fi
+  rm -f "$state.pid" "$state.ports"
+}
+
+main() {
+  local cmd=start name=""
+  while (( $# )); do
+    case "$1" in
+      list|stop) cmd=$1 ;;
+      --name) name=$2; shift ;;
+      --name=*) name=${1#--name=} ;;
+      -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; return 0 ;;
+      *) print -u2 -- "remote-docker-ports: 不明な引数: $1"; return 2 ;;
+    esac
+    shift
+  done
+
+  local host
+  if ! host=$(_remote_host); then
+    print -u2 -- "remote-docker-ports: 今の docker context はリモート（ssh://）ではない。ポートはすでに手元にある"
+    return 1
+  fi
+  local state=$(_state_file "$host")
+
+  case "$cmd" in
+    stop)
+      _stop "$host"
+      print -- "転送を止めた: $host"
+      return 0 ;;
+    list)
+      if [[ -f "$state.pid" ]] && kill -0 "$(<"$state.pid")" 2>/dev/null; then
+        print -- "$host → 127.0.0.1: $(<"$state.ports")"
+      else
+        print -- "転送なし: $host"
+      fi
+      return 0 ;;
+  esac
+
+  local -a filter=()
+  [[ -n "$name" ]] && filter=(--filter "name=$name")
+  local ports_out
+  if ! ports_out=$(_real_docker ps "${filter[@]}" --format '{{.Ports}}'); then
+    print -u2 -- "remote-docker-ports: docker ps に失敗した"
+    return 1
+  fi
+
+  _stop "$host"   # 張り直す（コンテナの増減に合わせる）
+  local -a specs=() used=() skipped=()
+  local port
+  for port in $(print -r -- "$ports_out" | _published_tcp_ports); do
+    if _local_port_busy "$port"; then
+      skipped+=("$port")
+      continue
+    fi
+    specs+=(-L "127.0.0.1:$port:127.0.0.1:$port")
+    used+=("$port")
+  done
+  (( ${#skipped} )) && print -u2 -- "remote-docker-ports: 手元で使用中のため飛ばした: ${(j:, :)skipped}"
+  if (( ${#used} == 0 )); then
+    print -- "転送するポートがない: $host${name:+（--name $name）}"
+    return 0
+  fi
+
+  # 相乗り（ControlMaster）を使わない専用の接続にして、pid で止められるようにする
+  ssh -n -N -o ControlMaster=no -o ControlPath=none -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 \
+    "${specs[@]}" "$host" >/dev/null 2>&1 &
+  local pid=$!
+  sleep 1
+  if ! kill -0 "$pid" 2>/dev/null; then
+    print -u2 -- "remote-docker-ports: ssh の転送を開始できなかった"
+    return 1
+  fi
+  print -r -- "$pid" > "$state.pid"
+  print -r -- "${(j:, :)used}" > "$state.ports"
+  print -- "$host → 127.0.0.1: ${(j:, :)used}（止める: remote-docker-ports stop）"
+}
+
+[[ "${ZSH_EVAL_CONTEXT:-}" == toplevel ]] && main "$@"

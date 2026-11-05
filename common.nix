@@ -74,6 +74,8 @@ in
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/docker";
     ".local/bin/nix-sync".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/nix-sync";
+    ".local/bin/remote-docker-ports".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/remote-docker-ports";
   };
 
   xdg.configFile = {

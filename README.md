@@ -125,6 +125,20 @@ SSHのローカル転送はTCPのみ。Composeの`host_ip`が明示されてい�
 
 `bin/docker` はHome Managerの `mkOutOfStoreSymlink` で配置している。リンク設定が適用済みの環境では、このファイルの編集は次回の実行から反映される。回帰テストは `python3 -B -m unittest discover -s tests -v` で実行でき、実際のSSH接続やDockerコンテナは使用しない。Mutagenがある環境では、分離したテスト用デーモンとダミーファイルでローカル間の同期も検証する。
 
+## `bin/remote-docker-ports`
+
+`bin/docker`が手元に転送するのは、`docker compose up`で起動したサービスのポートだけ。Supabase CLI（`supabase start`）のようにDocker APIを直接使う道具は`docker`コマンドを経由しないため、起動したコンテナのポートが手元に来ない。`remote-docker-ports`はその穴だけを埋める別コマンドで、`docker`本体の挙動は変えない。
+
+```
+remote-docker-ports [--name 文字列]   # 起動中コンテナの公開TCPポートを手元の127.0.0.1の同じ番号へ転送（張り直し）
+remote-docker-ports list              # 今の転送を表示
+remote-docker-ports stop              # 転送を止める
+```
+
+`docker context`がリモート（`ssh://`）のときだけ動く。手元ですでに使われているポートは飛ばして警告する。範囲指定・UDPのポートは対象外。
+
+Docker APIを直接使う道具は、APIを呼ぶたびに`ssh … docker system dial-stdio`を起動するため、接続先のsshdの同時接続の上限に当たって切られることがある。`~/.ssh/config`の接続先に`ControlMaster auto`・`ControlPath`・`ControlPersist`を書いて、1本の接続に相乗りさせる（`~/.ssh/config`はこのリポジトリでは管理しない）。
+
 ## secretsについて
 
 このリポジトリは public。`~/.config/zsh/hidden/`配下や`~/.ssh/`など、秘密情報を含むファイルは意図的に含まれていない。
