@@ -30,22 +30,36 @@ if ! command -v mutagen >/dev/null 2>&1; then
   exit 127
 fi
 
+# _docker_remote_compose がサブコマンドより前のグローバルオプション（-f・-p など）を入れる。
+typeset -ga _COMPOSE_GLOBAL_ARGS
+
 # ---- compose file detection: don't sync/tunnel for directories that aren't
 # actually a compose project (e.g. a subdirectory of one). Mirrors how plain
 # `docker compose` only looks at $PWD, not parent directories. ----
-# `docker compose` のグローバルオプションから compose ファイルの指定だけを1行ずつ出す。
-# 最初のサブコマンド（run・up など）で打ち切る。それより後ろの -f は、
-# `docker compose run svc ridgepole -f Schemafile` のようにコンテナ側の引数なので拾わない。
-_compose_global_files() {
+# `docker compose` の引数のうち、サブコマンド（run・up など）より前にあるグローバルオプションの個数を出す。
+# サブコマンドより後ろは、`docker compose run svc ridgepole -f Schemafile` のようにコンテナ側の引数なので見ない。
+_compose_global_count() {
   local -a args=("$@")
+  local i=1
+  while (( i <= $#args )); do
+    case "${args[i]}" in
+      -f|--file|-p|--project-name|--profile|--env-file|--project-directory|--ansi|--progress|--parallel) (( i++ )) ;;
+      -*) ;;
+      *) break ;;
+    esac
+    (( i++ ))
+  done
+  print -r -- $(( i - 1 ))
+}
+
+# グローバルオプションから compose ファイルの指定だけを1行ずつ出す。
+_compose_global_files() {
+  local -a args=("${@[1,$(_compose_global_count "$@")]}")
   local i=1
   while (( i <= $#args )); do
     case "${args[i]}" in
       -f|--file) (( i++ )); print -r -- "${args[i]}" ;;
       --file=*) print -r -- "${args[i]#--file=}" ;;
-      -p|--project-name|--profile|--env-file|--project-directory|--ansi|--progress|--parallel) (( i++ )) ;;
-      -*) ;;
-      *) return 0 ;;
     esac
     (( i++ ))
   done
@@ -296,7 +310,9 @@ _ensure_session() {
     for p in ${(f)ports}; do
       port_args+=(-L "$p")
     done
-    ssh -N -o ExitOnForwardFailure=yes "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
+    # ~/.ssh/config の ControlMaster に相乗りすると、転送がマスター側に登録されて
+    # この ssh を止めても消えない。転送は専用の接続で張り、pid で確実に止められるようにする。
+    ssh -N -o ControlMaster=no -o ControlPath=none -o ExitOnForwardFailure=yes "${port_args[@]}" "$_DOCKER_REMOTE_HOST" &
     tpid=$!
     print -r -- "$tpid" > "$state/tunnel.pid"
     print -r -- "$ports_key" > "$state/tunnel.ports"
@@ -340,7 +356,7 @@ _compose_up() {
 
   if (( detach || wait_for_services )); then
     # Quote each argument for the remote shell, including paths with spaces.
-    local -a compose_cmd=(docker compose up "${up_args[@]}")
+    local -a compose_cmd=(docker compose "${_COMPOSE_GLOBAL_ARGS[@]}" up "${up_args[@]}")
     local -a quoted_cmd=("${(@qq)compose_cmd}")
     local remote_cmd="cd ${(qq)remote_dir} && ${(j: :)quoted_cmd}"
     print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
@@ -370,7 +386,7 @@ _compose_up() {
     exists=no
   fi
   if [[ "$exists" != "yes" ]]; then
-    local up_cmd="docker compose up ${(@q)up_args}"
+    local up_cmd="docker compose ${(@q)_COMPOSE_GLOBAL_ARGS} up ${(@q)up_args}"
     print -u2 -- "docker: starting 'docker compose up' in tmux session '$session' on ${_DOCKER_REMOTE_HOST}"
     ssh "$_DOCKER_REMOTE_HOST" "tmux new-session -d -s '$session' -c '$remote_dir' '$up_cmd'" || return $?
   else
@@ -388,7 +404,7 @@ _compose_down() {
   local local_dir=$1 remote_dir=$2 session=$3 state=$4 slug=$5
   shift 5
   print -u2 -- "docker: stopping containers on ${_DOCKER_REMOTE_HOST}"
-  ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose down $*"
+  ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${(@q)_COMPOSE_GLOBAL_ARGS} down $*"
   local rc=$?
   _mutagen_flush "$(_mutagen_name "$slug")"
   _teardown_session "$state" "$session" "$slug"
@@ -400,7 +416,12 @@ _docker_remote_compose() {
   local slug=$(_project_slug "$local_dir")
   local state=$(_state_dir "$slug")
   local session="dr-${slug}"
-  local sub=$1
+
+  # `docker compose -f x.yaml up` のようにグローバルオプションが先に来ても、サブコマンドを正しく見分ける。
+  # グローバルオプションは up・down・その他のどの経路でもリモートのコマンドに引き継ぐ。
+  local nglobal=$(_compose_global_count "$@")
+  _COMPOSE_GLOBAL_ARGS=("${@[1,nglobal]}")
+  local sub=${@[nglobal+1]}
 
   local -a compose_files
   local file
@@ -418,7 +439,7 @@ _docker_remote_compose() {
     return 1
   fi
 
-  shift
+  shift $(( nglobal + 1 ))
   case "$sub" in
     up)
       _compose_up "$remote_dir" "$session" "$slug" "$@"
@@ -429,7 +450,7 @@ _docker_remote_compose() {
     *)
       _mutagen_flush "$(_mutagen_name "$slug")"
       print -u2 -- "docker: running on ${_DOCKER_REMOTE_HOST}"
-      ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose $sub $*"
+      ssh -t "$_DOCKER_REMOTE_HOST" "cd '$remote_dir' && docker compose ${(@q)_COMPOSE_GLOBAL_ARGS} $sub $*"
       local rc=$?
       _mutagen_flush "$(_mutagen_name "$slug")"
       return $rc

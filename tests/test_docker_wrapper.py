@@ -16,7 +16,7 @@ UP_HANDLER = "_compose_up() {" + UP_HANDLER
 
 
 class ComposeUpTests(unittest.TestCase):
-    def run_up(self, args, *, compose_exit=0, ssh_exit=0, foreground=False):
+    def run_up(self, args, *, compose_exit=0, ssh_exit=0, foreground=False, global_args=()):
         with tempfile.TemporaryDirectory() as directory:
             scratch = Path(directory)
             remote = scratch / "remote's project $(touch UNEXPECTED)"
@@ -72,6 +72,7 @@ ssh() {
 }
 '''
             invocation = [str(remote), "existing-tmux", "project", *args]
+            script += "_COMPOSE_GLOBAL_ARGS=(" + shlex.join(global_args) + ")\n"
             script += UP_HANDLER + "\n_compose_up " + shlex.join(invocation)
             result = subprocess.run(
                 ["zsh", "-f", "-c", script], cwd=scratch, env=env,
@@ -129,6 +130,18 @@ ssh() {
                 self.assertIsNone(recorded)
                 self.assertIn("attached", result.stdout)
                 self.assertIn("new-session", trace)
+
+    def test_global_options_reach_the_detached_command(self):
+        # docker compose -f compose.dev.yaml -p "my app" up -d
+        global_args = ["-f", "compose.dev.yaml", "-p", "my app"]
+        result, recorded, _ = self.run_up(["-d"], global_args=global_args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(recorded["args"], ["compose", *global_args, "up", "-d"])
+
+    def test_global_options_reach_the_tmux_command(self):
+        result, _, trace = self.run_up([], foreground=True, global_args=["-f", "compose.dev.yaml"])
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("docker compose -f compose.dev.yaml up", trace)
 
     def test_tmux_creation_failure_stops_before_attach(self):
         result, _, trace = self.run_up([], foreground=True, ssh_exit=23)

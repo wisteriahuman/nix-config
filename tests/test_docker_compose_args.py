@@ -13,15 +13,45 @@ def extract(name):
     return f"{name}() {{{body}\n}}\n"
 
 
+def extract_all(*names):
+    return "".join(extract(n) for n in names)
+
+
 def files(*args):
     quoted = " ".join("'" + a.replace("'", "'\\''") + "'" for a in args)
     result = subprocess.run(
-        ["zsh", "-f", "-c", extract("_compose_global_files") + f"_compose_global_files {quoted}"],
+        ["zsh", "-f", "-c", extract_all("_compose_global_count", "_compose_global_files") + f"_compose_global_files {quoted}"],
         text=True, capture_output=True, timeout=10,
     )
     if result.returncode != 0:
         raise AssertionError(result.stderr)
     return result.stdout.splitlines()
+
+
+def count(*args):
+    quoted = " ".join("'" + a.replace("'", "'\\''") + "'" for a in args)
+    result = subprocess.run(
+        ["zsh", "-f", "-c", extract("_compose_global_count") + f"_compose_global_count {quoted}"],
+        text=True, capture_output=True, timeout=10,
+    )
+    if result.returncode != 0:
+        raise AssertionError(result.stderr)
+    return int(result.stdout.strip())
+
+
+class ComposeGlobalCountTests(unittest.TestCase):
+    def test_subcommand_first(self):
+        self.assertEqual(count("up", "-d"), 0)
+
+    def test_file_before_up_is_global(self):
+        # 以前は -f をサブコマンドと見て、up を tmux の経路に通さなかった
+        self.assertEqual(count("-f", "compose.dev.yaml", "up", "--build", "server"), 2)
+
+    def test_mixed_global_options(self):
+        self.assertEqual(count("--file=a.yaml", "-p", "proj", "--dry-run", "down"), 4)
+
+    def test_options_after_the_subcommand_are_not_counted(self):
+        self.assertEqual(count("-f", "c.yaml", "run", "--rm", "svc", "tool", "-f", "x"), 2)
 
 
 class ComposeGlobalFilesTests(unittest.TestCase):
