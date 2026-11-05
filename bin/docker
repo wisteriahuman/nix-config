@@ -33,15 +33,26 @@ fi
 # ---- compose file detection: don't sync/tunnel for directories that aren't
 # actually a compose project (e.g. a subdirectory of one). Mirrors how plain
 # `docker compose` only looks at $PWD, not parent directories. ----
-_has_compose_project() {
+# `docker compose` のグローバルオプションから compose ファイルの指定だけを1行ずつ出す。
+# 最初のサブコマンド（run・up など）で打ち切る。それより後ろの -f は、
+# `docker compose run svc ridgepole -f Schemafile` のようにコンテナ側の引数なので拾わない。
+_compose_global_files() {
   local -a args=("$@")
   local i=1
   while (( i <= $#args )); do
     case "${args[i]}" in
-      -f|--file|--file=*) return 0 ;;
+      -f|--file) (( i++ )); print -r -- "${args[i]}" ;;
+      --file=*) print -r -- "${args[i]#--file=}" ;;
+      -p|--project-name|--profile|--env-file|--project-directory|--ansi|--progress|--parallel) (( i++ )) ;;
+      -*) ;;
+      *) return 0 ;;
     esac
     (( i++ ))
   done
+}
+
+_has_compose_project() {
+  [[ -n "$(_compose_global_files "$@")" ]] && return 0
   local f
   for f in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
     [[ -f "$f" ]] && return 0
@@ -392,18 +403,9 @@ _docker_remote_compose() {
   local sub=$1
 
   local -a compose_files
-  local i=1
-  while (( i <= $# )); do
-    case "${@[i]}" in
-      -f|--file)
-        (( i++ ))
-        compose_files+=(-f "${@[i]}")
-        ;;
-      --file=*)
-        compose_files+=(-f "${${@[i]}#--file=}")
-        ;;
-    esac
-    (( i++ ))
+  local file
+  for file in "${(@f)$(_compose_global_files "$@")}"; do
+    [[ -n "$file" ]] && compose_files+=(-f "$file")
   done
 
   # Every subcommand (including `down`) needs the project actually synced
