@@ -8,3 +8,6 @@
 .DS_Store
 
 **/.claude/settings.local.json
+**/.agents/delegated
+
+**/.claude/.cc-writes/

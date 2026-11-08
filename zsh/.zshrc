@@ -37,6 +37,11 @@ eval "$(zoxide init zsh)"
 
 alias grep='rg'
 
+# mkdirしてすぐにcdする関数
+mkcd() {
+  mkdir -p "$1" && cd "$1"
+}
+
 ((${+commands[gshuf]})) && alias shuf='gshuf'
 
 eval "$(mise activate zsh)"
