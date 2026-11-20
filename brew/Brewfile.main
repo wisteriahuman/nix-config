@@ -2,8 +2,9 @@ cask "balenaetcher"
 cask "blender"
 cask "discord"
 cask "drawio"
-cask "muse"
 cask "rive"
 cask "zoom"
 
 mas "Spokenly", id: 6740315592
+
+# 手で入れる: Muse（cask のダウンロード元が 403 を返す）
