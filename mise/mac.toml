@@ -12,7 +12,7 @@ uv = "latest"
 [settings]
 
 [settings.ruby]
-compile = true
+compile = false
 
 [env]
 GOPATH = "{{env.HOME}}/.local/share/mise/go"
