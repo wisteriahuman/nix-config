@@ -1,0 +1,44 @@
+#!/bin/sh
+set -e
+
+REPO_DIR="$HOME/Projects/nix-config"
+MAIN_HOST="m5-macbook-air"
+
+cleanup=false
+case "$1" in
+  "") ;;
+  --cleanup) cleanup=true ;;
+  *) echo "usage: brew-sync [--cleanup]" >&2; exit 2 ;;
+esac
+
+brewfile=$(mktemp)
+trap 'rm -f "$brewfile"' EXIT
+cat "$REPO_DIR/brew/Brewfile" > "$brewfile"
+if [ "$(scutil --get LocalHostName)" = "$MAIN_HOST" ]; then
+  echo "==> $MAIN_HOST: Brewfile.main も使う"
+  cat "$REPO_DIR/brew/Brewfile.main" >> "$brewfile"
+fi
+
+if $cleanup; then
+  # 種類を絞らないと formula・tap・App Store のアプリまで消える
+  brew bundle cleanup --file="$brewfile" --casks --zap
+  exit
+fi
+
+echo "==> 足りない・古いもの"
+if brew bundle check --file="$brewfile" --verbose; then
+  missing=false
+else
+  missing=true
+fi
+
+echo "==> Brewfile に無い cask（brew-sync --cleanup で消える）"
+brew bundle cleanup --file="$brewfile" --casks --zap < /dev/null 2>&1 | grep -vE '^(Would remove:|Would `brew cleanup`|Run `brew bundle cleanup)' || true
+
+$missing || exit 0
+printf "入れる・更新しますか？ [y/N] "
+read -r answer < /dev/tty
+case "$answer" in
+  y|Y) brew bundle install --file="$brewfile" ;;
+  *) echo "入れずに終了" ;;
+esac

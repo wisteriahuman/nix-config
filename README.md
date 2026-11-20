@@ -84,6 +84,19 @@ fi
 
 ken のページ側 actor や Nix の固定を更新したときは、ken 側で `bin/ken-check` を通し、nix-config 側で `nix flake update ken` を行ってから `nix-sync`。リンクされた JS・CSS だけの変更は Zen の再起動で反映される。
 
+## Mac のアプリ（Brewfile）
+
+GUIアプリは `brew/Brewfile`（全Mac共通）と `brew/Brewfile.main`（メインのMacだけ）で管理する。コマンドは Nix に入れ、Brewfile には書かない。
+
+```sh
+brew-sync            # 足りないものと、Brewfile に無い cask を表示し、確認してから入れる
+brew-sync --cleanup  # Brewfile に無い cask を zap で消す（確認あり）
+```
+
+- `Brewfile.main` はホスト名が `m5-macbook-air` のときだけ足される
+- `--cleanup` は cask だけが対象。formula・tap・App Store のアプリは消さない
+- 手で入れたアプリが Brewfile にあると、`brew bundle` が `--adopt` で取り込む
+
 ## 役割(role)の一覧
 
 - `mac-full` — メインの開発機（Mac）。wezterm、mise(フル)、`bin/docker`など一式。`aarch64-darwin` / `x86_64-darwin`

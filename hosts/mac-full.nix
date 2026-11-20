@@ -16,11 +16,13 @@
   targets.darwin.linkApps.enable = false;
   targets.darwin.copyApps.enable = true;
 
-  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick coreutils-prefixed ]) ++ [
+  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick coreutils-prefixed mas ]) ++ [
     inputs.mermaid-lsp.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
   home.file = {
+    ".local/bin/brew-sync".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/brew-sync";
     ".local/bin/tailscale".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/bin/tailscale";
   };

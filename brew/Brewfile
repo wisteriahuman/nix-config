@@ -1,0 +1,19 @@
+cask "azookey"
+cask "chatgpt"
+cask "claude"
+cask "codex"
+cask "google-chrome"
+cask "karabiner-elements"
+cask "parsec"
+cask "raycast"
+cask "spotify"
+cask "stats"
+cask "wezterm"
+
+mas "LINE", id: 539883307
+mas "RunCat", id: 1429033973
+mas "Slack", id: 803453959
+mas "Tailscale", id: 1475387142
+
+# 手で入れる: Orca https://github.com/stablyai/orca/releases
+# 手で入れる: VOICEVOX https://voicevox.hiroshiba.jp/

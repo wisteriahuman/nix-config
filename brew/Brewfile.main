@@ -1,0 +1,9 @@
+cask "balenaetcher"
+cask "blender"
+cask "discord"
+cask "drawio"
+cask "muse"
+cask "rive"
+cask "zoom"
+
+mas "Spokenly", id: 6740315592
