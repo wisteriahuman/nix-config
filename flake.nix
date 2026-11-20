@@ -12,7 +12,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     ken = {
-      url = "git+file:///Users/wisteria/Projects/ken";
+      url = "git+ssh://git@github.com/wisteriahuman/ken";
       inputs.home-manager.follows = "home-manager";
     };
   };

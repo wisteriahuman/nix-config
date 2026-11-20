@@ -58,7 +58,7 @@ nix-sync
 
 ### Mac の ken（Zen）を初めて有効にする
 
-Apple Silicon の `mac-full` で有効。`~/Projects/ken` の flake が固定する Zen を使い、設定は同リポジトリへ直接リンクする。
+Apple Silicon の `mac-full` で有効。ken は private の `wisteriahuman/ken` から読み、その flake が固定する Zen を使う。設定は `~/Projects/ken` へ直接リンクするので、新しい Mac では先に `git clone git@github.com:wisteriahuman/ken.git ~/Projects/ken` しておく。
 
 初回は Zen をすべて閉じ、プロファイル全体と実験用の Tridactyl 設定を退避してから同期する。先に `~/Projects/ken/docs/operations.md` の版の比較を行う。
 
@@ -82,7 +82,7 @@ fi
 
 同期後は `~/Applications/Home Manager Apps/Zen.app` を起動する。`/Applications/Zen.app` と同時に起動しない。
 
-ken のページ側 actor や Nix の固定を更新したときは、ken 側で `bin/ken-check` を通し、nix-config 側で `nix flake update ken` を行ってから `nix-sync`。リンクされた JS・CSS だけの変更は Zen の再起動で反映される。
+ken のページ側 actor や Nix の固定を更新したときは、ken 側で `bin/ken-check` を通して push し、nix-config 側で `nix flake update ken` を行ってから `nix-sync`。リンクされた JS・CSS だけの変更は Zen の再起動で反映される。
 
 ## Mac のアプリ（Brewfile）
 

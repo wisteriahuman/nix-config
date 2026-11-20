@@ -78,11 +78,11 @@
         "rev": "a13d64ee9b297405728aeead6f55ed09bf41bc98",
         "revCount": 145,
         "type": "git",
-        "url": "file:///Users/wisteria/Projects/ken"
+        "url": "ssh://git@github.com/wisteriahuman/ken"
       },
       "original": {
         "type": "git",
-        "url": "file:///Users/wisteria/Projects/ken"
+        "url": "ssh://git@github.com/wisteriahuman/ken"
       }
     },
     "mermaid-lsp": {
