@@ -28,6 +28,9 @@
   };
 
   xdg.configFile = {
+    # ファイル単位のリンクは Karabiner が保存時に置き換えて壊すので、ディレクトリごとリンクする
+    "karabiner".source =
+      config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/karabiner";
     "wezterm/wezterm.lua".source =
       config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/Projects/nix-config/wezterm/wezterm.lua";
     "wezterm/keybinds.lua".source =
