@@ -16,7 +16,7 @@
   targets.darwin.linkApps.enable = false;
   targets.darwin.copyApps.enable = true;
 
-  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick coreutils-prefixed mas ]) ++ [
+  home.packages = (with pkgs; [ wget xcodegen duckdb imagemagick coreutils-prefixed mas mise ]) ++ [
     inputs.mermaid-lsp.packages.${pkgs.stdenv.hostPlatform.system}.default
   ];
 
