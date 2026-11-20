@@ -1,4 +1,4 @@
--- translate.nvim の parse_before。識別子とコードの式を、DeepL が読める英文に書き換える。
+-- translate.nvim の parse_before。識別子とコードの式を、翻訳エンジンが読める英文に書き換える。
 local M = {}
 
 local non_verbs = { is = true, has = true, can = true, should = true, will = true, was = true, did = true, to = true, on = true, as = true }
