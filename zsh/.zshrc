@@ -37,6 +37,8 @@ eval "$(zoxide init zsh)"
 
 alias grep='rg'
 
+alias livesrv='npx -y live-server --host=127.0.0.1'
+
 # mkdirしてすぐにcdする関数
 mkcd() {
   mkdir -p "$1" && cd "$1"
